@@ -78,7 +78,10 @@ async function nexusAuth(req, res, next) {
   }
 
   if (isBypass) {
-    req.empresa = { id: 1 };
+    req.empresa = {
+      id: 1,
+      nombre: process.env.EXPEDIENTE_EMPRESA_FALLBACK || 'La Mundial de Seguros',
+    };
     req.submoduloId = EXPECTED_SUBMODS.length > 0 ? EXPECTED_SUBMODS[0] : 17;
     if (token) {
       try {
@@ -106,7 +109,10 @@ async function nexusAuth(req, res, next) {
       try {
         const decoded = jwt.decode(token);
         if (decoded && typeof decoded === 'object') {
-          req.empresa = { id: decoded.empresaId };
+          req.empresa = {
+            id: decoded.empresaId,
+            nombre: typeof decoded.empresaNombre === 'string' ? decoded.empresaNombre : undefined,
+          };
           req.submoduloId = decoded.submoduloId;
         }
       } catch { /* ignore */ }
@@ -153,7 +159,10 @@ async function nexusAuth(req, res, next) {
         message: `Token emitido para submódulo ${payload.submoduloId}, este backend espera ${EXPECTED_SUBMODS.join(', ')}.`,
       });
     }
-    req.empresa = { id: payload.empresaId };
+    req.empresa = {
+      id: payload.empresaId,
+      nombre: typeof payload.empresaNombre === 'string' ? payload.empresaNombre : undefined,
+    };
     req.submoduloId = payload.submoduloId;
     req.nexusToken = token;
 
@@ -182,6 +191,9 @@ async function nexusAuth(req, res, next) {
           });
         }
         // Token renovado: actualizar en req para que rutas aguas abajo lo lean
+        if (typeof hb.empresaNombre === 'string' && hb.empresaNombre.trim()) {
+          req.empresa = { ...(req.empresa || {}), id: req.empresa?.id, nombre: hb.empresaNombre.trim() };
+        }
         if (hb.access_token) {
           req.nexusToken = hb.access_token;
           res.setHeader('X-Nexus-Token-Refreshed', hb.access_token);

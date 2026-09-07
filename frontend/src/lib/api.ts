@@ -64,11 +64,15 @@ export class DocTypeMismatchError extends Error {
 export async function uploadDocument(
   file: File,
   docType: DocType,
-  onProgress: (pct: number) => void
+  onProgress: (pct: number) => void,
+  extras?: { cedulaTitular?: string; empresaNombre?: string },
 ): Promise<UploadResponse> {
   const form = new FormData();
   form.append('file', file);
   form.append('docType', toOcrEngineDocType(docType));
+  const cedula = String(extras?.cedulaTitular || '').replace(/\D/g, '');
+  if (cedula) form.append('cedulaTitular', cedula);
+  if (extras?.empresaNombre) form.append('empresaNombre', extras.empresaNombre);
 
   try {
     const response = await api.post<UploadResponse>('/documents/upload', form, {

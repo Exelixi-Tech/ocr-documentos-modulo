@@ -317,9 +317,16 @@ function UploadDocCard({
     const file = await prepareFile(rawFile);
 
     try {
+      const wiz = useWizardStore.getState();
+      const cedulaTitular = String(
+        wiz.tomador?.identificacion
+        || wiz.documents.cedula?.ocr?.identificacion
+        || wiz.documents.cedula_titular?.ocr?.identificacion
+        || '',
+      ).replace(/\D/g, '');
       const result = await uploadDocument(file, config.type, (pct) => {
         setDocState(config.type, { progress: pct });
-      });
+      }, { cedulaTitular: cedulaTitular || undefined });
 
       setDocState(config.type, { status: 'processing', progress: 100 });
       await new Promise((r) => setTimeout(r, 800));

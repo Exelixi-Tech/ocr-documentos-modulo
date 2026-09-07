@@ -13,18 +13,31 @@ const path    = require('path');
 const sharp   = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const { validateDocument, runOcr, VALID_DOC_TYPES } = require('../services/documentService');
+const expedienteFs = require('../lib/expedienteFs');
 
 const router = express.Router();
 
-// ── Multer storage (aislado por empresa) ──────────────────────────────
-const UPLOAD_ROOT = path.join(__dirname, '..', '..', 'uploads');
+function resolveEmpresaNombre(req) {
+  const fromReq = req.empresa?.nombre;
+  const fromBody = req.body?.empresaNombre;
+  const fallback = process.env.EXPEDIENTE_EMPRESA_FALLBACK || '';
+  return expedienteFs.sanitizeFolderName(
+    fromReq || fromBody || fallback,
+    req.empresa?.id ? `empresa-${req.empresa.id}` : 'empresa-sin-nombre',
+  );
+}
 
+function cedulaFromOcrFields(fields) {
+  if (!fields || typeof fields !== 'object') return '';
+  return expedienteFs.sanitizeCedula(
+    fields.identificacion ?? fields.cedula ?? fields.numeroDocumento ?? fields.rif,
+  );
+}
+
+// Temporal: multer deja el archivo en _tmp; luego placePending lo mueve al expediente.
 const storage = multer.diskStorage({
-  destination: (req, _file, cb) => {
-    // Si nexusAuth identificó la empresa, los uploads se aíslan por empresaId.
-    // Si no (modo permissive sin token), van a "shared".
-    const empresaId = req.empresa?.id ? String(req.empresa.id) : 'shared';
-    const dir = path.join(UPLOAD_ROOT, empresaId);
+  destination: (_req, _file, cb) => {
+    const dir = path.join(expedienteFs.uploadRoot(), '_tmp');
     require('fs').mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
@@ -179,8 +192,14 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
       });
     }
 
-    const fileName = path.basename(normalized.filePath);
-    const empresaSeg = req.empresa?.id ? String(req.empresa.id) : 'shared';
+    const empresaNombre = resolveEmpresaNombre(req);
+    const cedula = expedienteFs.sanitizeCedula(req.body?.cedulaTitular)
+      || cedulaFromOcrFields(ocrResult.fields);
+    const placed = await expedienteFs.placePending(normalized.filePath, {
+      empresaNombre,
+      cedula,
+      docType,
+    });
     const carnetBinacional =
       docType === 'certificado'
       && !ocrResult.ocrFailed
@@ -197,7 +216,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
         name: req.file.originalname,
         size: req.file.size,
         mimeType: normalized.mimetype,
-        url: `/files/${empresaSeg}/${fileName}`,
+        url: placed.url,
       },
       ocr: ocrResult.fields,
       ocrProvider: ocrResult.provider,

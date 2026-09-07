@@ -10,7 +10,6 @@
  *   GET  /api/health              (sanity check)
  */
 require('dotenv').config();
-const path = require('path');
 const fs = require('fs');
 const cors = require('cors');
 const express = require('express');
@@ -33,7 +32,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+const { uploadRoot } = require('./lib/expedienteFs');
+const UPLOAD_DIR = uploadRoot();
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 app.use('/files', express.static(UPLOAD_DIR));
 
@@ -101,6 +101,10 @@ app.use('/api/catalogo', proxyValrep);
 
 // Catálogo Exélixi (product-builder) — sin nexus_token; credenciales server-side
 app.use('/api/catalog', catalogRoutes);
+
+// Commit expediente: emision-api en localhost (token de otro submódulo)
+const expedienteInternal = require('./routes/expedienteInternal');
+app.use('/api/documents/commit-expediente', expedienteInternal);
 
 // Multi-tenant: todas las rutas /api (excepto /api/health y proxies arriba) requieren nexus_token
 app.use('/api', nexusAuth, ocrRoutes);
