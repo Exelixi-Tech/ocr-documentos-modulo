@@ -175,11 +175,8 @@ async function runOcr(file, docType) {
         meta: result.meta,
       };
     } catch (err) {
-      // IMPORTANTE: cuando OCR_PROVIDER=gemini y Gemini falla, NUNCA debemos
-      // devolver datos mock por defecto al cliente: el usuario los percibe
-      // como datos reales extraidos del documento. En su lugar devolvemos
-      // campos vacios + `ocrFailed`, y el frontend muestra un aviso para que
-      // el usuario complete el formulario manualmente.
+      // Gemini falló (red, cuota, cadena agotada): no devolver mock.
+      // La ruta responde 503 y el front deja el slot en error (rojo).
       console.error(`[OCR] gemini fallo. docType=${docType} error=${err.message}`);
       return {
         provider: 'gemini',

@@ -21,10 +21,8 @@ export interface UploadResponse {
   /** SHA-256 del archivo (Circular SAA-02-1079-2026). */
   hash?: string;
   /**
-   * `true` cuando el archivo se guardo correctamente pero el OCR no pudo
-   * extraer datos (cuota agotada, imagen ilegible, etc.). El cliente debe
-   * pedir al usuario que llene el formulario manualmente. NUNCA pre-rellenar
-   * con valores por defecto del servidor.
+   * Legacy: el API actual responde 503 `OCR_PROVIDER_FAILED` si Gemini cae.
+   * Si llegara un 200 con esta bandera, el slot debe quedar en error (rojo).
    */
   ocrFailed?: boolean;
   ocrError?: string;

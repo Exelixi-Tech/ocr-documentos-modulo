@@ -331,22 +331,17 @@ function UploadDocCard({
       setDocState(config.type, { status: 'processing', progress: 100 });
       await new Promise((r) => setTimeout(r, 800));
 
-      // Caso degradado: el archivo se subio pero Gemini no pudo leerlo
-      // (cuota, calidad de imagen, etc.). NO precargamos datos por defecto:
-      // el formulario del siguiente paso quedara vacio para que el usuario
-      // lo complete manualmente.
+      // Gemini caído / sin lectura: el slot queda en error (rojo), no en verde.
       if (result.ocrFailed) {
-        toast.warning(
+        toast.error(
           `No pudimos leer "${config.label}"`,
-          'El archivo quedo cargado, pero tendras que completar los datos a mano en el siguiente paso.',
+          'El servicio de lectura no respondió. Inténtalo de nuevo.',
           7000
         );
         setDocState(config.type, {
-          status: 'done',
-          progress: 100,
-          file: result.file,
-          ocr: {},
-          hash: result.hash,
+          status: 'error',
+          progress: 0,
+          error: 'No se pudo leer el documento. Inténtalo de nuevo.',
         });
         return;
       }
@@ -435,9 +430,11 @@ function UploadDocCard({
         return;
       }
 
+      const data = (err as { response?: { data?: { code?: string; message?: string } } })?.response?.data;
       const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Error al procesar el documento.';
+        data?.code === 'OCR_PROVIDER_FAILED'
+          ? 'No se pudo leer el documento. Inténtalo de nuevo.'
+          : (data?.message ?? 'Error al procesar el documento.');
       toast.error(`No pudimos procesar "${config.label}"`, message, 6000);
       setDocState(config.type, { status: 'error', progress: 0, error: message });
     }

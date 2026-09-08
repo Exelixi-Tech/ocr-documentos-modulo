@@ -79,6 +79,13 @@ async function normalizeImage(filePath, mimetype) {
   return { filePath: out, mimetype: 'image/webp' };
 }
 
+async function discardUpload(...paths) {
+  for (const p of paths) {
+    if (!p) continue;
+    try { await fs.unlink(p); } catch { /* ya no está */ }
+  }
+}
+
 /**
  * @openapi
  * /api/documents/upload:
@@ -148,6 +155,8 @@ async function normalizeImage(filePath, mimetype) {
  *                 detected:      { type: string, example: 'licencia' }
  *                 expectedLabel: { type: string, example: 'Cédula de identidad' }
  *                 detectedLabel: { type: string, example: 'Licencia de conducir' }
+ *       503:
+ *         description: Gemini no respondió (red, cuota o cadena agotada). El archivo no se guarda.
  *       500:
  *         description: Error interno del servidor
  */
@@ -178,7 +187,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
     }
 
     if (ocrResult.mismatch) {
-      try { await fs.unlink(req.file.path); } catch {}
+      await discardUpload(normalized.filePath, req.file.path);
       return res.status(422).json({
         success: false,
         code: 'DOC_TYPE_MISMATCH',
@@ -188,6 +197,19 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
         expectedLabel: ocrResult.mismatch.expectedLabel,
         detectedLabel: ocrResult.mismatch.detectedLabel,
         ocrProvider: ocrResult.provider,
+        ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),
+      });
+    }
+
+    if (ocrResult.ocrFailed) {
+      await discardUpload(normalized.filePath, req.file.path);
+      return res.status(503).json({
+        success: false,
+        code: 'OCR_PROVIDER_FAILED',
+        message: 'No pudimos leer el documento. Revisa la conexión e inténtalo de nuevo.',
+        ocrFailed: true,
+        ocrProvider: ocrResult.provider,
+        ...(ocrResult.error ? { ocrError: ocrResult.error } : {}),
         ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),
       });
     }
@@ -202,14 +224,11 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
     });
     const carnetBinacional =
       docType === 'certificado'
-      && !ocrResult.ocrFailed
       && ocrResult.fields?.tipoCarnet === 'binacional'
       && ocrResult.fields?.tipoPlaca === 'binacional';
     return res.status(200).json({
       success: true,
-      message: ocrResult.ocrFailed
-        ? 'Archivo recibido. No pudimos leer los datos automaticamente.'
-        : 'Documento procesado exitosamente.',
+      message: 'Documento procesado exitosamente.',
       docType,
       file: {
         id: uuidv4(),
@@ -222,9 +241,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
       ocrProvider: ocrResult.provider,
       ...(fileHash ? { hash: fileHash, metadata: { docType, hash: fileHash, uploadedAt: new Date().toISOString() } } : {}),
       ...(carnetBinacional ? { carnetBinacional: true } : {}),
-      ...(ocrResult.ocrFailed ? { ocrFailed: true } : {}),
       ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),
-      ...(ocrResult.error ? { ocrError: ocrResult.error } : {}),
     });
   } catch (err) {
     console.error('[modulo-ocr/upload] error:', err);
