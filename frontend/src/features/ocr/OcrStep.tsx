@@ -5,10 +5,14 @@ import {
   MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
-import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
+import { uploadDocument, DocTypeMismatchError, PlanVehicleMismatchError } from '../../lib/api';
 import { validateBill } from '../activacion-tarjeta/api';
 import { appendFacturaIfNeeded } from '../activacion-tarjeta/docs';
 import { normalizeNfactura } from '../activacion-tarjeta/flow';
+import {
+  resolveTarjetaPlanVehicleKind,
+  validateCertificadoForTarjetaPlan,
+} from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
@@ -334,9 +338,15 @@ function UploadDocCard({
         || wiz.documents.cedula_titular?.ocr?.identificacion
         || '',
       ).replace(/\D/g, '');
+      const tarjeta = wiz.tarjeta;
       const result = await uploadDocument(file, config.type, (pct) => {
         setDocState(config.type, { progress: pct });
-      }, { cedulaTitular: cedulaTitular || undefined });
+      }, {
+        cedulaTitular: cedulaTitular || undefined,
+        tarjetaCplan: tarjeta?.cplan,
+        tarjetaCproducto: tarjeta?.cproducto,
+        tarjetaNombreProducto: tarjeta?.nombreProducto,
+      });
 
       setDocState(config.type, { status: 'processing', progress: 100 });
       await new Promise((r) => setTimeout(r, 800));
@@ -354,6 +364,25 @@ function UploadDocCard({
           error: 'No se pudo leer el documento. Inténtalo de nuevo.',
         });
         return;
+      }
+
+      if (config.type === 'certificado' && tarjeta) {
+        const planKind = resolveTarjetaPlanVehicleKind(tarjeta);
+        if (planKind) {
+          const check = validateCertificadoForTarjetaPlan(
+            planKind,
+            result.ocr as Record<string, unknown> | undefined,
+          );
+          if (check.ok === false) {
+            toast.warning('Carnet no compatible con la tarjeta', check.message, 8000);
+            setDocState(config.type, {
+              status: 'error',
+              progress: 0,
+              error: check.message,
+            });
+            return;
+          }
+        }
       }
 
       if (config.type === 'factura') {
@@ -453,6 +482,16 @@ function UploadDocCard({
           status: 'error',
           progress: 0,
           error: `Subiste un(a) ${err.detectedLabel}. Aqui va ${err.expectedLabel}.`,
+        });
+        return;
+      }
+
+      if (err instanceof PlanVehicleMismatchError) {
+        toast.warning('Carnet no compatible con la tarjeta', err.message, 8000);
+        setDocState(config.type, {
+          status: 'error',
+          progress: 0,
+          error: err.message,
         });
         return;
       }

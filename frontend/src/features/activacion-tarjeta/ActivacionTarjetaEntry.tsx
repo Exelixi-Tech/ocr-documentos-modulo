@@ -5,6 +5,7 @@ import { publicAsset } from '../../lib/app-base';
 import { toast } from '../../store/toastStore';
 import { validateCard } from './api';
 import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
+import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
 /**
  * Pantalla de entrada del flujo RCV por tarjeta (farmacia).
@@ -13,6 +14,7 @@ import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
 export function ActivacionTarjetaEntry() {
   const setTarjeta = useWizardStore((s) => s.setTarjeta);
   const setMetadataCanal = useWizardStore((s) => s.setMetadataCanal);
+  const setVehicle = useWizardStore((s) => s.setVehicle);
   const [codigo, setCodigo] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,6 +32,7 @@ export function ActivacionTarjetaEntry() {
     markTarjetaPublicSession();
     try {
       const tarjeta = await validateCard(value);
+      const vehicleKind = resolveTarjetaPlanVehicleKind(tarjeta);
       persistProductFromHints({ product: 'rcv' });
       const current = useWizardStore.getState().metadataCanal || {};
       setMetadataCanal({
@@ -44,7 +47,11 @@ export function ActivacionTarjetaEntry() {
         ccanalalt: tarjeta.ccanalalt,
         cproductor: tarjeta.cproductor,
         cproducto: tarjeta.cproducto,
+        tarjetaVehicleKind: vehicleKind,
       });
+      if (vehicleKind) {
+        setVehicle({ ctipo: ctipoForTarjetaPlan(vehicleKind) });
+      }
       setTarjeta(tarjeta);
       toast.success(
         'Tarjeta válida',

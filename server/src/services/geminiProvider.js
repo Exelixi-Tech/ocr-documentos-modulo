@@ -741,6 +741,17 @@ const SCHEMAS = {
           'Prefijo del documento del propietario (V, E, J, CC, CE, NIT). ' +
           'Venezuela: V o E según C.I.; Colombia: CC, CE o NIT.',
       },
+      tipoVehiculo: {
+        type: Type.STRING,
+        description:
+          'Clase/tipo impreso en el carnet INTT (ej. PASEO, MOTO PARTICULAR, RUSTICO, CAMIONETA). ' +
+          'Solo Venezuela nacional; null si no aparece.',
+      },
+      claseUso: {
+        type: Type.STRING,
+        description:
+          'Uso o clase adicional en el carnet (ej. PARTICULAR, PUBLICO). Null si no aparece.',
+      },
     },
     required: ['documentoTipo', 'tipoCarnet'],
   },
@@ -842,6 +853,8 @@ const PROMPTS = {
     'propietario = nombre del titular si aparece en el documento. ' +
     'identificacionPropietario = C.I. / cédula del titular (solo digitos). ' +
     'tipoDocPropietario = V, E o J segun el prefijo del documento. ' +
+    'tipoVehiculo = clase impresa (PASEO, MOTO PARTICULAR, RUSTICO, CAMIONETA…). ' +
+    'claseUso = uso si aparece (PARTICULAR, PUBLICO…). ' +
     '=== SI tipoCarnet=extranjero (Colombia — placa extranjera) === ' +
     'PLACA = campo PLACA / No. DE PLACA. ' +
     'linea = campo LINEA (equivale al modelo comercial: X5000, T800, 320I…). ' +

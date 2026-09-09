@@ -3,6 +3,7 @@ import type { BuilderCatalogProduct } from '../types/builder-catalog';
 import type { DiligenciaState } from './diligencia';
 import { persistBuilderProduct, useBuilderCatalog } from './builder-catalog';
 import { getProductId } from './product';
+import { shouldUseTarjetaPublicApi } from '../features/activacion-tarjeta/flow';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
 
@@ -185,6 +186,7 @@ export function getFormularioContinueUrl(): string {
       || sessionStorage.getItem(getModuleTokenKey());
     if (sid) params.set('sid', sid);
     if (nexusToken) params.set('nexus_token', nexusToken);
+    if (shouldUseTarjetaPublicApi()) params.set('flujo', 'tarjeta');
   } catch {
     try {
       const stored = sessionStorage.getItem('exelixi_product');
