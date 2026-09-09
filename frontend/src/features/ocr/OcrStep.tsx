@@ -231,13 +231,19 @@ function resolveOcrDocGridClass(count: number): string {
   return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto';
 }
 
+type UploadDocLayout = 'default' | 'compact' | 'banner';
+
 function UploadDocCard({
   config,
   onOpenPreview,
+  layout = 'default',
 }: {
   config: DocConfig;
   onOpenPreview: (file: DocumentFile, title: string) => void;
+  layout?: UploadDocLayout;
 }) {
+  const isCompact = layout === 'compact';
+  const isBanner = layout === 'banner';
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -554,6 +560,7 @@ function UploadDocCard({
       onKeyDown={handleCardKey}
       className={`
         group relative rounded-2xl border-2 transition-all duration-300 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white
+        ${isBanner ? 'border-sky-200 bg-gradient-to-r from-sky-50/80 via-white to-white shadow-sm' : ''}
         ${dragOver ? 'dropzone-active' : ''}
         ${isDone
           ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-white cursor-default'
@@ -561,6 +568,8 @@ function UploadDocCard({
           ? 'border-rose-300 bg-rose-50/30 sm:cursor-pointer sm:hover:border-rose-400 sm:hover:-translate-y-0.5'
           : isLoading
           ? 'border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 cursor-wait'
+          : isBanner
+          ? 'sm:hover:border-sky-400 sm:hover:shadow-[0_12px_32px_-12px_rgba(14,165,233,0.35)] sm:hover:-translate-y-0.5 sm:cursor-pointer sm:active:scale-[0.995]'
           : 'border-slate-200 bg-white sm:hover:border-indigo-400 sm:hover:shadow-[0_18px_40px_-12px_rgba(15,26,90,0.22)] sm:hover:-translate-y-0.5 sm:cursor-pointer sm:active:scale-[0.99]'
         }
       `}
@@ -575,36 +584,53 @@ function UploadDocCard({
 
       <HiddenFileInputs inputRef={inputRef} cameraRef={cameraRef} onPick={handleFile} />
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between p-4 pb-0 relative">
-        <div
-          className={`
-            w-9 h-9 rounded-xl grid place-items-center transition-all
-            ${isDone
-              ? 'bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.32)]'
-              : isLoading
-              ? `bg-gradient-to-br ${config.accent} text-white shadow-[0_4px_14px_rgba(15,26,90,0.32)]`
-              : config.optional
-              ? 'bg-slate-100 text-slate-500'
-              : 'bg-indigo-100 text-indigo-600'
-            }
-          `}
-        >
-          <Icon size={16} strokeWidth={2.2} />
+      <div className={isBanner ? 'lg:flex lg:items-stretch' : undefined}>
+      {/* Top bar + title */}
+      <div className={`
+        relative shrink-0
+        ${isBanner ? 'lg:w-[34%] lg:border-r lg:border-sky-100 lg:p-5' : ''}
+        ${isCompact ? 'p-3 pb-0' : 'p-4 pb-0'}
+      `}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-start gap-3 min-w-0">
+            <div
+              className={`
+                shrink-0 rounded-xl grid place-items-center transition-all
+                ${isCompact ? 'w-8 h-8' : 'w-9 h-9'}
+                ${isDone
+                  ? 'bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.32)]'
+                  : isLoading
+                  ? `bg-gradient-to-br ${config.accent} text-white shadow-[0_4px_14px_rgba(15,26,90,0.32)]`
+                  : isBanner
+                  ? 'bg-sky-500 text-white shadow-[0_4px_14px_rgba(14,165,233,0.35)]'
+                  : config.optional
+                  ? 'bg-slate-100 text-slate-500'
+                  : 'bg-indigo-100 text-indigo-600'
+                }
+              `}
+            >
+              <Icon size={isCompact ? 14 : 16} strokeWidth={2.2} />
+            </div>
+            <div className="min-w-0 pt-0.5">
+              <h3 className={`font-display font-bold text-slate-900 leading-tight ${isCompact ? 'text-[0.82rem]' : 'text-sm'}`}>
+                {config.label}
+              </h3>
+              <p className={`text-slate-500 mt-0.5 ${isCompact ? 'text-[0.72rem] leading-snug' : 'text-[0.78rem]'}`}>
+                {config.description}
+              </p>
+            </div>
+          </div>
+          <Badge variant={statusVariant[currentStatus]}>
+            {statusLabel[currentStatus]}
+          </Badge>
         </div>
-        <Badge variant={statusVariant[currentStatus]}>
-          {statusLabel[currentStatus]}
-        </Badge>
-      </div>
-
-      {/* Title */}
-      <div className="px-4 pt-3 pb-2 relative">
-        <h3 className="font-display font-bold text-slate-900 text-sm leading-tight">{config.label}</h3>
-        <p className="text-[0.78rem] text-slate-500 mt-0.5">{config.description}</p>
       </div>
 
       {/* Visual zone */}
-      <div className="mx-4 my-3 rounded-xl bg-slate-50 border border-slate-100 min-h-[150px] flex items-center justify-center p-4 relative overflow-hidden">
+      <div className={`
+        rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center relative overflow-hidden
+        ${isBanner ? 'mx-4 mb-4 mt-3 lg:m-4 lg:flex-1 min-h-[120px]' : isCompact ? 'mx-3 my-2.5 min-h-[108px] p-3' : 'mx-4 my-3 min-h-[150px] p-4'}
+      `}>
         {/* Scan line effect when processing */}
         {currentStatus === 'processing' && (
           <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent shadow-[0_0_12px_rgba(15,26,90,0.6)] pointer-events-none"
@@ -615,24 +641,34 @@ function UploadDocCard({
         {currentStatus === 'idle' && (
           <div className="flex flex-col items-center gap-2.5 text-slate-500 transition-colors">
             {/* Ícono central — desktop y móvil */}
-            <div className="relative w-14 h-14 rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none">
-              <Upload size={20} strokeWidth={2.2} className="group-hover:scale-110 transition-transform" />
+            <div className={`relative rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none ${isCompact || isBanner ? 'w-11 h-11' : 'w-14 h-14'}`}>
+              <Upload size={isCompact || isBanner ? 18 : 20} strokeWidth={2.2} className="group-hover:scale-110 transition-transform" />
               <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-indigo-500 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 shadow-[0_4px_12px_rgba(15,26,90,0.4)]">
                 <span className="text-[0.6rem] font-black">+</span>
               </span>
             </div>
 
             {/* Desktop: texto de arrastre */}
-            <span className="hidden sm:inline-flex text-xs font-bold items-center gap-1.5 pointer-events-none group-hover:text-indigo-500 transition-colors">
-              <MousePointerClick size={11} className="opacity-70" />
-              Click o arrastra aquí
-            </span>
+            {!isCompact && (
+              <span className="hidden sm:inline-flex text-xs font-bold items-center gap-1.5 pointer-events-none group-hover:text-indigo-500 transition-colors">
+                <MousePointerClick size={11} className="opacity-70" />
+                Click o arrastra aquí
+              </span>
+            )}
+
+            {(isCompact || isBanner) && (
+              <span className="hidden sm:inline text-[0.68rem] font-semibold text-slate-500 pointer-events-none">
+                Click o arrastra
+              </span>
+            )}
 
             <span className="sm:hidden text-xs font-semibold text-slate-600 text-center px-2 pointer-events-none">
               Usa los botones de abajo para subir
             </span>
 
-            <span className="hidden sm:inline text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
+            {!isCompact && (
+              <span className="hidden sm:inline text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
+            )}
           </div>
         )}
 
@@ -691,10 +727,11 @@ function UploadDocCard({
           onGallery={openGallery}
         />
       )}
+      </div>
 
       {/* Action footer (only when done) */}
       {isDone && (
-        <div className="p-4 pt-2 flex flex-col gap-2">
+        <div className={`flex flex-col gap-2 ${isCompact ? 'p-3 pt-1' : 'p-4 pt-2'}`}>
           <div className="flex gap-2">
           {docState.file?.url && (
             <button
@@ -839,6 +876,13 @@ export function OcrStep() {
   const requiredGridClass = resolveOcrDocGridClass(requiredVisibleDocs.length);
   const optionalGridClass = resolveOcrDocGridClass(optionalVisibleDocs.length);
   const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
+  const vehicleDocTypes = new Set<DocType>(['cedula', 'licencia', 'certificado']);
+  const vehicleRequiredDocs = requiredVisibleDocs.filter((d) => vehicleDocTypes.has(d.type));
+  const extraRequiredDocs = requiredVisibleDocs.filter((d) => !vehicleDocTypes.has(d.type));
+  const useTarjetaGroupedLayout =
+    tarjetaNeedsFactura
+    && vehicleRequiredDocs.length === 3
+    && extraRequiredDocs.some((d) => d.type === 'factura');
   const allRequiredDone =
     effectiveRequired.length > 0
     && effectiveRequired.every((d) => documents[d]?.status === 'done');
@@ -993,33 +1037,70 @@ export function OcrStep() {
 
       {/* Demo loader bar — oculto en producción */}
 
-      {/* Obligatorios */}
-      {requiredVisibleDocs.length > 0 && (
+      {/* Obligatorios — layout agrupado flujo tarjeta con factura */}
+      {useTarjetaGroupedLayout ? (
+        <div className="mx-auto max-w-5xl space-y-5">
+          <section>
+            <p className="mb-3 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-indigo-600/80">
+              Documentos del vehículo
+            </p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {vehicleRequiredDocs.map((doc) => (
+                <UploadDocCard
+                  key={doc.type}
+                  config={doc}
+                  layout="compact"
+                  onOpenPreview={(file, title) => setPreview({ file, title })}
+                />
+              ))}
+            </div>
+          </section>
+
+          {extraRequiredDocs.map((doc) => (
+            <section key={doc.type}>
+              <p className="mb-3 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-sky-700/90">
+                Comprobante de farmacia
+              </p>
+              <UploadDocCard
+                config={doc}
+                layout="banner"
+                onOpenPreview={(file, title) => setPreview({ file, title })}
+              />
+            </section>
+          ))}
+        </div>
+      ) : requiredVisibleDocs.length > 0 && (
         <div className={requiredGridClass}>
           {requiredVisibleDocs.map((doc) => (
             <UploadDocCard
               key={doc.type}
               config={doc}
+              layout={requiredVisibleDocs.length >= 4 ? 'compact' : 'default'}
               onOpenPreview={(file, title) => setPreview({ file, title })}
             />
           ))}
         </div>
       )}
 
-      {/* Opcionales — aparte para no desbalancear la grilla principal */}
+      {/* Opcionales — caja suave, sin romper la grilla principal */}
       {optionalVisibleDocs.length > 0 && (
-        <div className="mt-8 border-t border-slate-100 pt-6">
-          <p className="mb-4 text-center text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-400">
-            Documentos opcionales
-          </p>
-          <div className={optionalGridClass}>
-            {optionalVisibleDocs.map((doc) => (
-              <UploadDocCard
-                key={doc.type}
-                config={doc}
-                onOpenPreview={(file, title) => setPreview({ file, title })}
-              />
-            ))}
+        <div className={`mx-auto max-w-lg ${useTarjetaGroupedLayout ? 'mt-5' : 'mt-8'}`}>
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-4">
+            <p className="mb-3 text-center text-xs text-slate-500">
+              {useTarjetaGroupedLayout
+                ? 'Opcional · solo si el tomador es empresa'
+                : 'Documentos opcionales'}
+            </p>
+            <div className={optionalGridClass}>
+              {optionalVisibleDocs.map((doc) => (
+                <UploadDocCard
+                  key={doc.type}
+                  config={doc}
+                  layout="compact"
+                  onOpenPreview={(file, title) => setPreview({ file, title })}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
