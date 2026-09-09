@@ -18,6 +18,7 @@ export function metadataFromTarjetaActivacion(
     ccanalalt: tarjeta.ccanalalt,
     cproductor: tarjeta.cproductor,
     cproducto: tarjeta.cproducto,
+    cmoneda: raw.cmoneda != null ? String(raw.cmoneda) : '$',
     centidad: raw.centidad != null ? String(raw.centidad) : undefined,
     citem: raw.citem != null ? Number(raw.citem) : tarjeta.ccanalalt,
     nombre_producto:
