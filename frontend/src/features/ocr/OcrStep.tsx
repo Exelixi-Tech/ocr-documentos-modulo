@@ -231,7 +231,7 @@ function resolveOcrDocGridClass(count: number): string {
   return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto';
 }
 
-type UploadDocLayout = 'default' | 'compact' | 'banner';
+type UploadDocLayout = 'default' | 'compact' | 'banner' | 'row';
 
 function UploadDocCard({
   config,
@@ -244,6 +244,7 @@ function UploadDocCard({
 }) {
   const isCompact = layout === 'compact';
   const isBanner = layout === 'banner';
+  const isRow = layout === 'row';
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -551,6 +552,156 @@ function UploadDocCard({
   const openCamera = () => cameraRef.current?.click();
   const openGallery = () => inputRef.current?.click();
 
+  function resetDoc() {
+    setDocState(config.type, { status: 'idle', progress: 0, file: undefined, ocr: undefined });
+    useWizardStore.getState().setOcrDone(false);
+    if (config.type === 'certificado') setCarnetBinacionalMode(false);
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
+  if (isRow) {
+    return (
+      <div
+        role={isClickable ? 'button' : undefined}
+        tabIndex={isClickable ? 0 : -1}
+        aria-label={isClickable ? `Subir ${config.label}` : undefined}
+        onClick={handleCardClick}
+        onKeyDown={handleCardKey}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+        className={`
+          group relative transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/50
+          ${dragOver ? 'bg-indigo-50/80' : ''}
+          ${isDone ? 'bg-emerald-50/30' : currentStatus === 'error' ? 'bg-rose-50/20' : 'hover:bg-slate-50/80'}
+        `}
+      >
+        <HiddenFileInputs inputRef={inputRef} cameraRef={cameraRef} onPick={handleFile} />
+
+        <div className="flex items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
+          <div
+            className={`
+              shrink-0 grid place-items-center rounded-xl transition-all
+              w-10 h-10 sm:w-11 sm:h-11
+              ${isDone
+                ? 'bg-emerald-500 text-white'
+                : isLoading
+                ? `bg-gradient-to-br ${config.accent} text-white`
+                : currentStatus === 'error'
+                ? 'bg-rose-100 text-rose-600'
+                : config.optional
+                ? 'bg-slate-100 text-slate-500'
+                : 'bg-[#0F1A5A]/10 text-[#0F1A5A]'
+              }
+            `}
+          >
+            {isDone ? (
+              <CheckCircle2 size={20} strokeWidth={2.5} />
+            ) : isLoading ? (
+              <ScanLine size={18} className="animate-pulse-soft" />
+            ) : (
+              <Icon size={18} strokeWidth={2.2} />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-display font-bold text-sm text-slate-900 leading-tight">
+                {config.label}
+              </h3>
+              {config.optional && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500">
+                  Opcional
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5 leading-snug">{config.description}</p>
+            {currentStatus === 'error' && docState.error && (
+              <p className="text-xs text-rose-600 mt-1 leading-snug">{docState.error}</p>
+            )}
+            {isDone && docState.file?.name && (
+              <p className="text-xs text-emerald-700 mt-1 truncate font-medium">{docState.file.name}</p>
+            )}
+          </div>
+
+          <div
+            className="hidden sm:flex items-center gap-2 shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isLoading && (
+              <div className="flex items-center gap-2 pr-1">
+                <CircularProgress progress={docState.progress ?? 0} size={36} strokeWidth={4}>
+                  <span className="text-[0.6rem] font-bold text-indigo-600 font-mono">
+                    {Math.round(docState.progress ?? 0)}
+                  </span>
+                </CircularProgress>
+                <span className="text-xs font-semibold text-indigo-600">
+                  {currentStatus === 'uploading' ? 'Subiendo…' : 'OCR…'}
+                </span>
+              </div>
+            )}
+            {isDone && (
+              <>
+                {docState.file?.url && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPreview(docState.file!, config.label)}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  >
+                    <Eye size={12} />
+                    Ver
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={resetDoc}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                >
+                  <RotateCcw size={12} />
+                  Cambiar
+                </button>
+              </>
+            )}
+            {isClickable && (
+              <button
+                type="button"
+                data-upload-btn
+                onClick={() => inputRef.current?.click()}
+                className={`
+                  inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors
+                  ${currentStatus === 'error'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-[#0F1A5A] hover:bg-[#162575]'
+                  }
+                `}
+              >
+                <Upload size={13} strokeWidth={2.5} />
+                {currentStatus === 'error' ? 'Reintentar' : 'Subir'}
+              </button>
+            )}
+          </div>
+
+          {isDone && (
+            <span className="sm:hidden shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-[0.62rem] font-bold text-emerald-700">
+              Listo
+            </span>
+          )}
+          {isClickable && !isDone && (
+            <Upload size={16} className="sm:hidden shrink-0 text-slate-400" />
+          )}
+        </div>
+
+        {(currentStatus === 'idle' || currentStatus === 'error') && (
+          <MobileUploadActions
+            variant={currentStatus === 'error' ? 'error' : 'idle'}
+            onCamera={openCamera}
+            onGallery={openGallery}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       role={isClickable ? 'button' : undefined}
@@ -747,10 +898,7 @@ function UploadDocCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setDocState(config.type, { status: 'idle', progress: 0, file: undefined, ocr: undefined });
-              useWizardStore.getState().setOcrDone(false);
-              if (config.type === 'certificado') setCarnetBinacionalMode(false);
-              if (inputRef.current) inputRef.current.value = '';
+              resetDoc();
             }}
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
           >
@@ -876,13 +1024,7 @@ export function OcrStep() {
   const requiredGridClass = resolveOcrDocGridClass(requiredVisibleDocs.length);
   const optionalGridClass = resolveOcrDocGridClass(optionalVisibleDocs.length);
   const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
-  const vehicleDocTypes = new Set<DocType>(['cedula', 'licencia', 'certificado']);
-  const vehicleRequiredDocs = requiredVisibleDocs.filter((d) => vehicleDocTypes.has(d.type));
-  const extraRequiredDocs = requiredVisibleDocs.filter((d) => !vehicleDocTypes.has(d.type));
-  const useTarjetaGroupedLayout =
-    tarjetaNeedsFactura
-    && vehicleRequiredDocs.length === 3
-    && extraRequiredDocs.some((d) => d.type === 'factura');
+  const useTarjetaListLayout = Boolean(tarjeta);
   const allRequiredDone =
     effectiveRequired.length > 0
     && effectiveRequired.every((d) => documents[d]?.status === 'done');
@@ -997,112 +1139,124 @@ export function OcrStep() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero stat */}
-      <div className="mb-7 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2 flex flex-col justify-center">
-          <p className="text-slate-600 text-sm leading-relaxed">
-            Carga tus documentos y los analizaremos con OCR para
-            <span className="font-bold text-slate-800"> precargar la información</span> en el siguiente paso.
-            Aceptamos JPG, PNG, SVG o PDF.
-            {product.id === 'rcv' && (
-              <span className="block mt-2 text-indigo-700 font-semibold text-xs">
-                Documentos originales: cédula, licencia de conducir y certificado del vehículo
-                {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
-              </span>
-            )}
+      {/* Hero / progreso */}
+      {useTarjetaListLayout ? (
+        <div className="mb-6 max-w-2xl mx-auto">
+          <p className="text-sm text-slate-600 leading-relaxed text-center sm:text-left">
+            Sube cada documento. El OCR precargará tus datos automáticamente.
           </p>
-        </div>
-        <div className="relative bg-gradient-to-br from-indigo-50 via-violet-50/60 to-white border border-indigo-100 rounded-2xl p-4 overflow-hidden">
-          <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-violet-500/10 blur-2xl" />
-          <div className="relative flex items-end gap-3">
-            <span className="text-5xl font-display font-black gradient-text-indigo leading-none">
-              <AnimatedCounter value={completedCount} />
-            </span>
-            <div className="pb-1">
-              <p className="text-xs text-slate-500 font-semibold leading-tight">
-                de <span className="font-mono text-slate-700">{effectiveRequired.length}</span> obligatorios
-              </p>
-              <p className="text-[0.65rem] text-slate-500 mt-0.5">documentos verificados</p>
-            </div>
-          </div>
-          {/* Mini progress */}
-          <div className="mt-3 h-1 rounded-full bg-indigo-100 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 ease-out"
-              style={{ width: `${completionPct}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Demo loader bar — oculto en producción */}
-
-      {/* Obligatorios — layout agrupado flujo tarjeta con factura */}
-      {useTarjetaGroupedLayout ? (
-        <div className="mx-auto max-w-5xl space-y-5">
-          <section>
-            <p className="mb-3 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-indigo-600/80">
-              Documentos del vehículo
-            </p>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {vehicleRequiredDocs.map((doc) => (
-                <UploadDocCard
-                  key={doc.type}
-                  config={doc}
-                  layout="compact"
-                  onOpenPreview={(file, title) => setPreview({ file, title })}
-                />
-              ))}
-            </div>
-          </section>
-
-          {extraRequiredDocs.map((doc) => (
-            <section key={doc.type}>
-              <p className="mb-3 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-sky-700/90">
-                Comprobante de farmacia
-              </p>
-              <UploadDocCard
-                config={doc}
-                layout="banner"
-                onOpenPreview={(file, title) => setPreview({ file, title })}
+          <div className="mt-4 flex items-center gap-3">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-[#0F1A5A] transition-all duration-500 ease-out"
+                style={{ width: `${completionPct}%` }}
               />
-            </section>
-          ))}
+            </div>
+            <span className="shrink-0 text-xs font-bold tabular-nums text-slate-600">
+              {completedCount}/{effectiveRequired.length}
+            </span>
+          </div>
+          {tarjetaNeedsFactura && (
+            <p className="mt-3 text-center text-xs text-slate-500 sm:text-left">
+              Incluye la factura fiscal de farmacia (número junto a <strong className="text-slate-700">FACTURA</strong>).
+            </p>
+          )}
         </div>
-      ) : requiredVisibleDocs.length > 0 && (
-        <div className={requiredGridClass}>
-          {requiredVisibleDocs.map((doc) => (
-            <UploadDocCard
-              key={doc.type}
-              config={doc}
-              layout={requiredVisibleDocs.length >= 4 ? 'compact' : 'default'}
-              onOpenPreview={(file, title) => setPreview({ file, title })}
-            />
-          ))}
+      ) : (
+        <div className="mb-7 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2 flex flex-col justify-center">
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Carga tus documentos y los analizaremos con OCR para
+              <span className="font-bold text-slate-800"> precargar la información</span> en el siguiente paso.
+              Aceptamos JPG, PNG, SVG o PDF.
+              {product.id === 'rcv' && (
+                <span className="block mt-2 text-indigo-700 font-semibold text-xs">
+                  Documentos originales: cédula, licencia de conducir y certificado del vehículo
+                </span>
+              )}
+            </p>
+          </div>
+          <div className="relative bg-gradient-to-br from-indigo-50 via-violet-50/60 to-white border border-indigo-100 rounded-2xl p-4 overflow-hidden">
+            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-violet-500/10 blur-2xl" />
+            <div className="relative flex items-end gap-3">
+              <span className="text-5xl font-display font-black gradient-text-indigo leading-none">
+                <AnimatedCounter value={completedCount} />
+              </span>
+              <div className="pb-1">
+                <p className="text-xs text-slate-500 font-semibold leading-tight">
+                  de <span className="font-mono text-slate-700">{effectiveRequired.length}</span> obligatorios
+                </p>
+                <p className="text-[0.65rem] text-slate-500 mt-0.5">documentos verificados</p>
+              </div>
+            </div>
+            <div className="mt-3 h-1 rounded-full bg-indigo-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 ease-out"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Opcionales — caja suave, sin romper la grilla principal */}
-      {optionalVisibleDocs.length > 0 && (
-        <div className={`mx-auto max-w-lg ${useTarjetaGroupedLayout ? 'mt-5' : 'mt-8'}`}>
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-4">
-            <p className="mb-3 text-center text-xs text-slate-500">
-              {useTarjetaGroupedLayout
-                ? 'Opcional · solo si el tomador es empresa'
-                : 'Documentos opcionales'}
-            </p>
-            <div className={optionalGridClass}>
+      {/* Demo loader bar — oculto en producción */}
+
+      {/* Flujo tarjeta — lista unificada */}
+      {useTarjetaListLayout ? (
+        <div className="mx-auto max-w-2xl space-y-3">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100">
+            {requiredVisibleDocs.map((doc) => (
+              <UploadDocCard
+                key={doc.type}
+                config={doc}
+                layout="row"
+                onOpenPreview={(file, title) => setPreview({ file, title })}
+              />
+            ))}
+          </div>
+          {optionalVisibleDocs.length > 0 && (
+            <div className="overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 divide-y divide-slate-100">
               {optionalVisibleDocs.map((doc) => (
                 <UploadDocCard
                   key={doc.type}
                   config={doc}
-                  layout="compact"
+                  layout="row"
                   onOpenPreview={(file, title) => setPreview({ file, title })}
                 />
               ))}
             </div>
-          </div>
+          )}
         </div>
+      ) : (
+        <>
+          {requiredVisibleDocs.length > 0 && (
+            <div className={requiredGridClass}>
+              {requiredVisibleDocs.map((doc) => (
+                <UploadDocCard
+                  key={doc.type}
+                  config={doc}
+                  onOpenPreview={(file, title) => setPreview({ file, title })}
+                />
+              ))}
+            </div>
+          )}
+          {optionalVisibleDocs.length > 0 && (
+            <div className="mt-8">
+              <p className="mb-4 text-center text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-400">
+                Documentos opcionales
+              </p>
+              <div className={optionalGridClass}>
+                {optionalVisibleDocs.map((doc) => (
+                  <UploadDocCard
+                    key={doc.type}
+                    config={doc}
+                    onOpenPreview={(file, title) => setPreview({ file, title })}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* OCR success banner */}
