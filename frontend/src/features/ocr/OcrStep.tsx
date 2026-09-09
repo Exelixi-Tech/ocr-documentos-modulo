@@ -6,6 +6,9 @@ import {
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
+import { validateBill } from '../activacion-tarjeta/api';
+import { appendFacturaIfNeeded } from '../activacion-tarjeta/docs';
+import { normalizeNfactura } from '../activacion-tarjeta/flow';
 import { getProductConfig } from '../../lib/product';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
@@ -186,6 +189,13 @@ const DOCS: DocConfig[] = [
     optional: true,
     accent: 'from-slate-400 to-slate-500',
   },
+  {
+    type: 'factura',
+    label: 'Factura fiscal',
+    description: 'Ticket de farmacia · número FACTURA',
+    Icon: FileText,
+    accent: 'from-sky-500 to-blue-600',
+  },
 ];
 
 function UploadDocCard({
@@ -344,6 +354,23 @@ function UploadDocCard({
           error: 'No se pudo leer el documento. Inténtalo de nuevo.',
         });
         return;
+      }
+
+      if (config.type === 'factura') {
+        const nfactura = normalizeNfactura(result.ocr?.nfactura);
+        const xcodigo = useWizardStore.getState().tarjeta?.xcodigoUnico;
+        if (!nfactura) {
+          throw new Error('No se leyó el número de FACTURA. Sube una foto más nítida.');
+        }
+        if (!xcodigo) {
+          throw new Error('Falta el código único de la tarjeta. Vuelve a validar el código.');
+        }
+        await validateBill(xcodigo, nfactura);
+        const prev = useWizardStore.getState().tarjeta!;
+        useWizardStore.getState().setTarjeta({ ...prev, nfactura });
+        const meta = useWizardStore.getState().metadataCanal || {};
+        useWizardStore.getState().setMetadataCanal({ ...meta, nfactura });
+        toast.success('Factura validada', `Número ${nfactura}`, 4000);
       }
 
       setDocState(config.type, {
@@ -659,7 +686,7 @@ export function OcrStep() {
   const {
     documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
     builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
-    titularFromCarnet, asegurado, hasDriver, conductor,
+    titularFromCarnet, asegurado, hasDriver, conductor, tarjeta,
   } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
@@ -710,8 +737,11 @@ export function OcrStep() {
     }
   }
 
+  const binacionalDocs = adjustDocsForBinacionalCarnet(
+    requiredDocs, optionalDocs, documents, hasVehicle, carnetBinacionalMode,
+  );
   const { requiredDocs: effectiveRequired, optionalDocs: effectiveOptional } =
-    adjustDocsForBinacionalCarnet(requiredDocs, optionalDocs, documents, hasVehicle, carnetBinacionalMode);
+    appendFacturaIfNeeded(binacionalDocs.requiredDocs, binacionalDocs.optionalDocs, tarjeta);
 
   useEffect(() => {
     if (product.id !== 'rcv') return;

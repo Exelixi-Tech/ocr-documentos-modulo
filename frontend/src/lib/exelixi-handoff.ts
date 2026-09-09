@@ -13,7 +13,8 @@ export type OcrDocType =
   | 'licencia'
   | 'certificado'
   | 'rif'
-  | 'pasaporte';
+  | 'pasaporte'
+  | 'factura';
 
 export interface OcrFields {
   nombre?: string;
@@ -56,6 +57,7 @@ export interface ExelixiOcrHandoff {
   sameInsured?: boolean;
   asegurado?: Partial<PersonData>;
   savedAt: number;
+  tarjeta?: import('../features/activacion-tarjeta/types').TarjetaActivacion | null;
 }
 
 function mapDocOcr(doc?: DocumentState): OcrFields | undefined {
@@ -73,6 +75,7 @@ export function buildOcrHandoff(
     conductor?: Partial<PersonData>;
     sameInsured?: boolean;
     asegurado?: Partial<PersonData>;
+    tarjeta?: import('../features/activacion-tarjeta/types').TarjetaActivacion | null;
   },
 ): ExelixiOcrHandoff {
   const ocrData: Partial<Record<OcrDocType, OcrFields>> = {};
@@ -84,6 +87,7 @@ export function buildOcrHandoff(
     'certificado',
     'rif',
     'pasaporte',
+    'factura',
   ];
   const documentHashes: Partial<Record<DocType, string>> = {};
 
@@ -105,6 +109,7 @@ export function buildOcrHandoff(
     conductor: personRoles?.conductor,
     sameInsured: personRoles?.sameInsured,
     asegurado: personRoles?.asegurado,
+    tarjeta: personRoles?.tarjeta ?? null,
     savedAt: Date.now(),
   };
 }

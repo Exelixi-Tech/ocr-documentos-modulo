@@ -19,6 +19,7 @@ const swaggerSpec = require('./swagger');
 
 const ocrRoutes    = require('./routes/ocr');
 const catalogRoutes = require('./routes/catalog');
+const tarjetaRoutes = require('./routes/activacionTarjeta');
 const nexusAuth    = require('./middleware/nexusAuth');
 
 const app = express();
@@ -105,6 +106,9 @@ app.use('/api/catalog', catalogRoutes);
 // Commit expediente: emision-api en localhost (token de otro submódulo)
 const expedienteInternal = require('./routes/expedienteInternal');
 app.use('/api/documents/commit-expediente', expedienteInternal);
+
+// Activación tarjeta RCV (farmacia) — carpeta / flujo separado
+app.use('/api/tarjeta', nexusAuth, tarjetaRoutes);
 
 // Multi-tenant: todas las rutas /api (excepto /api/health y proxies arriba) requieren nexus_token
 app.use('/api', nexusAuth, ocrRoutes);

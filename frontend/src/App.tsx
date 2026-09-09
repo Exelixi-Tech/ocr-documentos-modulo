@@ -45,9 +45,13 @@ const DOC_LABELS: Record<string, string> = {
   certificado: 'certificado',
   pasaporte: 'pasaporte',
   rif: 'RIF',
+  factura: 'factura fiscal',
 };
 
 import { OcrConfigPanel } from './config/OcrConfigPanel';
+import { ActivacionTarjetaEntry } from './features/activacion-tarjeta/ActivacionTarjetaEntry';
+import { appendFacturaIfNeeded } from './features/activacion-tarjeta/docs';
+import { isTarjetaRcvEntry } from './features/activacion-tarjeta/flow';
 
 function MobileOcrContinueBar({
   onContinue,
@@ -89,7 +93,7 @@ export default function App() {
     return <OcrConfigPanel />;
   }
 
-  const { step, documents, diligencia, tomador, nextStep, goTo, setMetadataCanal, builderProduct, carnetBinacionalMode } = useWizardStore();
+  const { step, documents, diligencia, tomador, nextStep, goTo, setMetadataCanal, builderProduct, carnetBinacionalMode, tarjeta } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
@@ -159,6 +163,7 @@ export default function App() {
           conductor: roles.conductor,
           sameInsured: roles.sameInsured,
           asegurado: roles.asegurado,
+          tarjeta: state.tarjeta,
         },
       ),
     );
@@ -213,13 +218,14 @@ export default function App() {
       optionalDocs = [];
     }
 
-    return adjustDocsForBinacionalCarnet(
+    const binacional = adjustDocsForBinacionalCarnet(
       requiredDocs,
       optionalDocs,
       documents,
       hasVehicle,
       carnetBinacionalMode,
     );
+    return appendFacturaIfNeeded(binacional.requiredDocs, binacional.optionalDocs, tarjeta);
   }
 
   const { requiredDocs: effectiveRequiredDocs } = resolveEffectiveOcrDocs();
@@ -258,6 +264,15 @@ export default function App() {
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSuccess]);
+
+  if (isTarjetaRcvEntry() && !tarjeta) {
+    return (
+      <>
+        <Toaster />
+        <ActivacionTarjetaEntry />
+      </>
+    );
+  }
 
   if (builderCatalogMode) {
     if (showCatalogPicker) {

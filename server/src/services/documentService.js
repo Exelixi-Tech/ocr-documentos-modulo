@@ -9,7 +9,7 @@
  * no romper el flujo del usuario, pero el error queda registrado.
  */
 
-const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte'];
+const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura'];
 
 const DOC_TYPE_LABELS = {
   cedula: 'Cedula de Identidad',
@@ -17,6 +17,7 @@ const DOC_TYPE_LABELS = {
   certificado: 'Certificado de Circulacion',
   rif: 'Registro Unico de Informacion Fiscal (RIF)',
   pasaporte: 'Pasaporte',
+  factura: 'Factura fiscal',
   desconocido: 'documento no reconocido',
 };
 
