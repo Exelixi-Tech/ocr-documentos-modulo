@@ -202,6 +202,35 @@ const DOCS: DocConfig[] = [
   },
 ];
 
+/** Orden visual: obligatorios del vehículo primero, factura tarjeta, opcionales al final. */
+const DOC_DISPLAY_ORDER: DocType[] = [
+  'cedula',
+  'cedula_titular',
+  'cedula_beneficiario',
+  'licencia',
+  'certificado',
+  'factura',
+  'pasaporte',
+  'rif',
+];
+
+function sortDocConfigs(docs: DocConfig[]): DocConfig[] {
+  const order = new Map(DOC_DISPLAY_ORDER.map((type, index) => [type, index]));
+  return [...docs].sort(
+    (a, b) => (order.get(a.type) ?? 99) - (order.get(b.type) ?? 99),
+  );
+}
+
+/** Grilla simétrica según cantidad (evita filas huérfanas tipo 4+1). */
+function resolveOcrDocGridClass(count: number): string {
+  if (count <= 0) return '';
+  if (count === 1) return 'grid grid-cols-1 gap-4 max-w-sm mx-auto';
+  if (count === 2) return 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto';
+  if (count === 3) return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto';
+  if (count === 4) return 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto';
+  return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto';
+}
+
 function UploadDocCard({
   config,
   onOpenPreview,
@@ -797,27 +826,22 @@ export function OcrStep() {
     });
   }, [product.id, itipoDiligencia, effectiveRequired.join(','), documents, setDiligencia]);
 
-  const visibleDocs = DOCS.filter(
-    (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
-  ).map((d) => ({
-    ...d,
-    optional: effectiveOptional.includes(d.type),
-  }));
+  const visibleDocs = sortDocConfigs(
+    DOCS.filter(
+      (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
+    ).map((d) => ({
+      ...d,
+      optional: effectiveOptional.includes(d.type),
+    })),
+  );
+  const requiredVisibleDocs = visibleDocs.filter((d) => !d.optional);
+  const optionalVisibleDocs = visibleDocs.filter((d) => d.optional);
+  const requiredGridClass = resolveOcrDocGridClass(requiredVisibleDocs.length);
+  const optionalGridClass = resolveOcrDocGridClass(optionalVisibleDocs.length);
+  const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
   const allRequiredDone =
     effectiveRequired.length > 0
     && effectiveRequired.every((d) => documents[d]?.status === 'done');
-
-  // La grilla de carga se adapta a la cantidad de documentos del producto y se
-  // centra cuando son pocos (p.ej. Funerario: cédula + RIF) para que quede
-  // simétrica en lugar de alinearse a la izquierda.
-  const docGridClass =
-    visibleDocs.length === 1
-      ? 'grid grid-cols-1 gap-4 max-w-sm mx-auto'
-      : visibleDocs.length === 2
-      ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto'
-      : visibleDocs.length === 3
-        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto'
-        : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4';
 
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
@@ -939,6 +963,7 @@ export function OcrStep() {
             {product.id === 'rcv' && (
               <span className="block mt-2 text-indigo-700 font-semibold text-xs">
                 Documentos originales: cédula, licencia de conducir y certificado del vehículo
+                {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
               </span>
             )}
           </p>
@@ -968,16 +993,36 @@ export function OcrStep() {
 
       {/* Demo loader bar — oculto en producción */}
 
-      {/* Upload grid */}
-      <div className={docGridClass}>
-        {visibleDocs.map((doc) => (
-          <UploadDocCard
-            key={doc.type}
-            config={doc}
-            onOpenPreview={(file, title) => setPreview({ file, title })}
-          />
-        ))}
-      </div>
+      {/* Obligatorios */}
+      {requiredVisibleDocs.length > 0 && (
+        <div className={requiredGridClass}>
+          {requiredVisibleDocs.map((doc) => (
+            <UploadDocCard
+              key={doc.type}
+              config={doc}
+              onOpenPreview={(file, title) => setPreview({ file, title })}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Opcionales — aparte para no desbalancear la grilla principal */}
+      {optionalVisibleDocs.length > 0 && (
+        <div className="mt-8 border-t border-slate-100 pt-6">
+          <p className="mb-4 text-center text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Documentos opcionales
+          </p>
+          <div className={optionalGridClass}>
+            {optionalVisibleDocs.map((doc) => (
+              <UploadDocCard
+                key={doc.type}
+                config={doc}
+                onOpenPreview={(file, title) => setPreview({ file, title })}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* OCR success banner */}
       {allRequiredDone && (() => {
