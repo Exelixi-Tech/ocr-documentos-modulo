@@ -51,7 +51,7 @@ const DOC_LABELS: Record<string, string> = {
 import { OcrConfigPanel } from './config/OcrConfigPanel';
 import { ActivacionTarjetaEntry } from './features/activacion-tarjeta/ActivacionTarjetaEntry';
 import { appendFacturaIfNeeded } from './features/activacion-tarjeta/docs';
-import { isTarjetaRcvEntry } from './features/activacion-tarjeta/flow';
+import { isTarjetaRcvEntry, markTarjetaPublicSession } from './features/activacion-tarjeta/flow';
 
 function MobileOcrContinueBar({
   onContinue,
@@ -99,6 +99,10 @@ export default function App() {
   const builderCatalogMode = useBuilderCatalog();
   const { hideHeader, hideStepper, hideTrustBanner, hideFooterBar } = useUiFlags(config);
   const showCatalogPicker = builderCatalogMode && !builderProduct;
+
+  useEffect(() => {
+    if (isTarjetaRcvEntry()) markTarjetaPublicSession();
+  }, []);
 
   // Interceptar SSO Delegation (nexus_token + legacy session_token)
   useEffect(() => {

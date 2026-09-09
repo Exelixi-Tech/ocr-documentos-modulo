@@ -6,6 +6,7 @@ import {
   isExelixiCatalogFlowHint,
   useBuilderCatalog,
 } from '../lib/builder-catalog';
+import { isTarjetaRcvEntry } from '../features/activacion-tarjeta/flow';
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 interface NexusContextValue {
@@ -125,6 +126,7 @@ function isDeferredVerifyFlow(): boolean {
 
 export function NexusGuard({ children, recheckInterval = 30 }: NexusGuardProps) {
   const catalogStandalone = useBuilderCatalog() && !hasNexusAccessToken();
+  const tarjetaStandalone = isTarjetaRcvEntry() && !hasNexusAccessToken();
 
   if (catalogStandalone) {
     return (
@@ -134,6 +136,24 @@ export function NexusGuard({ children, recheckInterval = 30 }: NexusGuardProps) 
           submodulo: {
             id: 0,
             nombre: 'Catálogo Exélixi',
+            url: window.location.href,
+            accessUrl: null,
+          },
+        }}
+      >
+        {children}
+      </NexusContext.Provider>
+    );
+  }
+
+  if (tarjetaStandalone) {
+    return (
+      <NexusContext.Provider
+        value={{
+          empresa: { id: 0, nombre: 'La Mundial de Seguros', rif: '' },
+          submodulo: {
+            id: 0,
+            nombre: 'Activación tarjeta RCV',
             url: window.location.href,
             accessUrl: null,
           },

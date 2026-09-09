@@ -4,7 +4,7 @@ import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
 import { toast } from '../../store/toastStore';
 import { validateCard } from './api';
-import { normalizeCodigoTarjeta } from './flow';
+import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
 
 /**
  * Pantalla de entrada del flujo RCV por tarjeta (farmacia).
@@ -27,6 +27,7 @@ export function ActivacionTarjetaEntry() {
 
     setLoading(true);
     setError('');
+    markTarjetaPublicSession();
     try {
       const tarjeta = await validateCard(value);
       persistProductFromHints({ product: 'rcv' });

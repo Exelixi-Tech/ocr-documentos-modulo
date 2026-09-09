@@ -101,6 +101,22 @@ async function nexusAuth(req, res, next) {
     req.builderCatalogFlow = true;
     return done(req, res, next);
   }
+
+  // Activación tarjeta farmacia (?flujo=tarjeta) — OCR sin SSO previo
+  const tarjetaFlowHeader = req.headers['x-rcv-tarjeta-flow'];
+  const tarjetaPublicFlow =
+    process.env.TARJETA_ACTIVACION_PUBLIC === 'true'
+    && !token
+    && (tarjetaFlowHeader === '1' || tarjetaFlowHeader === 1);
+  if (tarjetaPublicFlow) {
+    req.empresa = {
+      id: 0,
+      nombre: process.env.EXPEDIENTE_EMPRESA_FALLBACK || 'La Mundial de Seguros',
+    };
+    req.submoduloId = EXPECTED_SUBMODS.length > 0 ? EXPECTED_SUBMODS[0] : 17;
+    req.tarjetaPublicFlow = true;
+    return done(req, res, next);
+  }
   // -----------------------------------
 
   if (!ENABLED) {

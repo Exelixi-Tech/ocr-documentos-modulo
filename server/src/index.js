@@ -107,8 +107,8 @@ app.use('/api/catalog', catalogRoutes);
 const expedienteInternal = require('./routes/expedienteInternal');
 app.use('/api/documents/commit-expediente', expedienteInternal);
 
-// Activación tarjeta RCV (farmacia) — carpeta / flujo separado
-app.use('/api/tarjeta', nexusAuth, tarjetaRoutes);
+// Activación tarjeta RCV (farmacia) — validate-card/bill sin nexus_token
+app.use('/api/tarjeta', tarjetaRoutes);
 
 // Multi-tenant: todas las rutas /api (excepto /api/health y proxies arriba) requieren nexus_token
 app.use('/api', nexusAuth, ocrRoutes);
