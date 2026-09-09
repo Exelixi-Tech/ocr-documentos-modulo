@@ -221,30 +221,25 @@ function sortDocConfigs(docs: DocConfig[]): DocConfig[] {
   );
 }
 
-/** Grilla simétrica según cantidad (evita filas huérfanas tipo 4+1). */
+/** Grilla: documentos en fila según cantidad (4 en desktop, 5 si hay RIF). */
 function resolveOcrDocGridClass(count: number): string {
   if (count <= 0) return '';
   if (count === 1) return 'grid grid-cols-1 gap-4 max-w-sm mx-auto';
-  if (count === 2) return 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto';
-  if (count === 3) return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto';
-  if (count === 4) return 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl mx-auto';
-  return 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-5xl mx-auto';
+  if (count === 2) return 'grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto';
+  if (count === 3) return 'grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-5xl mx-auto';
+  if (count === 4) return 'grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-6xl mx-auto';
+  return 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-w-[88rem] mx-auto';
 }
-
-type UploadDocLayout = 'default' | 'compact' | 'banner' | 'row';
 
 function UploadDocCard({
   config,
   onOpenPreview,
-  layout = 'default',
+  dense = false,
 }: {
   config: DocConfig;
   onOpenPreview: (file: DocumentFile, title: string) => void;
-  layout?: UploadDocLayout;
+  dense?: boolean;
 }) {
-  const isCompact = layout === 'compact';
-  const isBanner = layout === 'banner';
-  const isRow = layout === 'row';
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -559,149 +554,6 @@ function UploadDocCard({
     if (inputRef.current) inputRef.current.value = '';
   }
 
-  if (isRow) {
-    return (
-      <div
-        role={isClickable ? 'button' : undefined}
-        tabIndex={isClickable ? 0 : -1}
-        aria-label={isClickable ? `Subir ${config.label}` : undefined}
-        onClick={handleCardClick}
-        onKeyDown={handleCardKey}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        className={`
-          group relative transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-400/50
-          ${dragOver ? 'bg-indigo-50/80' : ''}
-          ${isDone ? 'bg-emerald-50/30' : currentStatus === 'error' ? 'bg-rose-50/20' : 'hover:bg-slate-50/80'}
-        `}
-      >
-        <HiddenFileInputs inputRef={inputRef} cameraRef={cameraRef} onPick={handleFile} />
-
-        <div className="flex items-center gap-3 px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
-          <div
-            className={`
-              shrink-0 grid place-items-center rounded-xl transition-all
-              w-10 h-10 sm:w-11 sm:h-11
-              ${isDone
-                ? 'bg-emerald-500 text-white'
-                : isLoading
-                ? `bg-gradient-to-br ${config.accent} text-white`
-                : currentStatus === 'error'
-                ? 'bg-rose-100 text-rose-600'
-                : config.optional
-                ? 'bg-slate-100 text-slate-500'
-                : 'bg-[#0F1A5A]/10 text-[#0F1A5A]'
-              }
-            `}
-          >
-            {isDone ? (
-              <CheckCircle2 size={20} strokeWidth={2.5} />
-            ) : isLoading ? (
-              <ScanLine size={18} className="animate-pulse-soft" />
-            ) : (
-              <Icon size={18} strokeWidth={2.2} />
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-display font-bold text-sm text-slate-900 leading-tight">
-                {config.label}
-              </h3>
-              {config.optional && (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-wide text-slate-500">
-                  Opcional
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5 leading-snug">{config.description}</p>
-            {currentStatus === 'error' && docState.error && (
-              <p className="text-xs text-rose-600 mt-1 leading-snug">{docState.error}</p>
-            )}
-            {isDone && docState.file?.name && (
-              <p className="text-xs text-emerald-700 mt-1 truncate font-medium">{docState.file.name}</p>
-            )}
-          </div>
-
-          <div
-            className="hidden sm:flex items-center gap-2 shrink-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {isLoading && (
-              <div className="flex items-center gap-2 pr-1">
-                <CircularProgress progress={docState.progress ?? 0} size={36} strokeWidth={4}>
-                  <span className="text-[0.6rem] font-bold text-indigo-600 font-mono">
-                    {Math.round(docState.progress ?? 0)}
-                  </span>
-                </CircularProgress>
-                <span className="text-xs font-semibold text-indigo-600">
-                  {currentStatus === 'uploading' ? 'Subiendo…' : 'OCR…'}
-                </span>
-              </div>
-            )}
-            {isDone && (
-              <>
-                {docState.file?.url && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenPreview(docState.file!, config.label)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                  >
-                    <Eye size={12} />
-                    Ver
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={resetDoc}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  <RotateCcw size={12} />
-                  Cambiar
-                </button>
-              </>
-            )}
-            {isClickable && (
-              <button
-                type="button"
-                data-upload-btn
-                onClick={() => inputRef.current?.click()}
-                className={`
-                  inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors
-                  ${currentStatus === 'error'
-                    ? 'bg-rose-600 hover:bg-rose-700'
-                    : 'bg-[#0F1A5A] hover:bg-[#162575]'
-                  }
-                `}
-              >
-                <Upload size={13} strokeWidth={2.5} />
-                {currentStatus === 'error' ? 'Reintentar' : 'Subir'}
-              </button>
-            )}
-          </div>
-
-          {isDone && (
-            <span className="sm:hidden shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-[0.62rem] font-bold text-emerald-700">
-              Listo
-            </span>
-          )}
-          {isClickable && !isDone && (
-            <Upload size={16} className="sm:hidden shrink-0 text-slate-400" />
-          )}
-        </div>
-
-        {(currentStatus === 'idle' || currentStatus === 'error') && (
-          <MobileUploadActions
-            variant={currentStatus === 'error' ? 'error' : 'idle'}
-            onCamera={openCamera}
-            onGallery={openGallery}
-          />
-        )}
-      </div>
-    );
-  }
-
   return (
     <div
       role={isClickable ? 'button' : undefined}
@@ -711,7 +563,6 @@ function UploadDocCard({
       onKeyDown={handleCardKey}
       className={`
         group relative rounded-2xl border-2 transition-all duration-300 overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white
-        ${isBanner ? 'border-sky-200 bg-gradient-to-r from-sky-50/80 via-white to-white shadow-sm' : ''}
         ${dragOver ? 'dropzone-active' : ''}
         ${isDone
           ? 'border-emerald-200 bg-gradient-to-br from-emerald-50/70 via-white to-white cursor-default'
@@ -719,8 +570,6 @@ function UploadDocCard({
           ? 'border-rose-300 bg-rose-50/30 sm:cursor-pointer sm:hover:border-rose-400 sm:hover:-translate-y-0.5'
           : isLoading
           ? 'border-indigo-200 bg-gradient-to-br from-indigo-50/50 via-white to-violet-50/30 cursor-wait'
-          : isBanner
-          ? 'sm:hover:border-sky-400 sm:hover:shadow-[0_12px_32px_-12px_rgba(14,165,233,0.35)] sm:hover:-translate-y-0.5 sm:cursor-pointer sm:active:scale-[0.995]'
           : 'border-slate-200 bg-white sm:hover:border-indigo-400 sm:hover:shadow-[0_18px_40px_-12px_rgba(15,26,90,0.22)] sm:hover:-translate-y-0.5 sm:cursor-pointer sm:active:scale-[0.99]'
         }
       `}
@@ -728,59 +577,46 @@ function UploadDocCard({
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
     >
-      {/* Decorative accent corner */}
       {!isDone && !isLoading && currentStatus !== 'error' && (
         <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gradient-to-br ${config.accent} opacity-[0.08] blur-2xl pointer-events-none`} />
       )}
 
       <HiddenFileInputs inputRef={inputRef} cameraRef={cameraRef} onPick={handleFile} />
 
-      <div className={isBanner ? 'lg:flex lg:items-stretch' : undefined}>
-      {/* Top bar + title */}
-      <div className={`
-        relative shrink-0
-        ${isBanner ? 'lg:w-[34%] lg:border-r lg:border-sky-100 lg:p-5' : ''}
-        ${isCompact ? 'p-3 pb-0' : 'p-4 pb-0'}
-      `}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-start gap-3 min-w-0">
-            <div
-              className={`
-                shrink-0 rounded-xl grid place-items-center transition-all
-                ${isCompact ? 'w-8 h-8' : 'w-9 h-9'}
-                ${isDone
-                  ? 'bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.32)]'
-                  : isLoading
-                  ? `bg-gradient-to-br ${config.accent} text-white shadow-[0_4px_14px_rgba(15,26,90,0.32)]`
-                  : isBanner
-                  ? 'bg-sky-500 text-white shadow-[0_4px_14px_rgba(14,165,233,0.35)]'
-                  : config.optional
-                  ? 'bg-slate-100 text-slate-500'
-                  : 'bg-indigo-100 text-indigo-600'
-                }
-              `}
-            >
-              <Icon size={isCompact ? 14 : 16} strokeWidth={2.2} />
-            </div>
-            <div className="min-w-0 pt-0.5">
-              <h3 className={`font-display font-bold text-slate-900 leading-tight ${isCompact ? 'text-[0.82rem]' : 'text-sm'}`}>
-                {config.label}
-              </h3>
-              <p className={`text-slate-500 mt-0.5 ${isCompact ? 'text-[0.72rem] leading-snug' : 'text-[0.78rem]'}`}>
-                {config.description}
-              </p>
-            </div>
-          </div>
-          <Badge variant={statusVariant[currentStatus]}>
-            {statusLabel[currentStatus]}
-          </Badge>
+      <div className={`flex items-center justify-between ${dense ? 'p-3 pb-0' : 'p-4 pb-0'} relative`}>
+        <div
+          className={`
+            rounded-xl grid place-items-center transition-all
+            ${dense ? 'w-8 h-8' : 'w-9 h-9'}
+            ${isDone
+              ? 'bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.32)]'
+              : isLoading
+              ? `bg-gradient-to-br ${config.accent} text-white shadow-[0_4px_14px_rgba(15,26,90,0.32)]`
+              : config.optional
+              ? 'bg-slate-100 text-slate-500'
+              : 'bg-indigo-100 text-indigo-600'
+            }
+          `}
+        >
+          <Icon size={dense ? 14 : 16} strokeWidth={2.2} />
         </div>
+        <Badge variant={statusVariant[currentStatus]}>
+          {statusLabel[currentStatus]}
+        </Badge>
       </div>
 
-      {/* Visual zone */}
+      <div className={`relative ${dense ? 'px-3 pt-2 pb-1' : 'px-4 pt-3 pb-2'}`}>
+        <h3 className={`font-display font-bold text-slate-900 leading-tight ${dense ? 'text-[0.82rem]' : 'text-sm'}`}>
+          {config.label}
+        </h3>
+        <p className={`text-slate-500 mt-0.5 ${dense ? 'text-[0.72rem] leading-snug' : 'text-[0.78rem]'}`}>
+          {config.description}
+        </p>
+      </div>
+
       <div className={`
         rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center relative overflow-hidden
-        ${isBanner ? 'mx-4 mb-4 mt-3 lg:m-4 lg:flex-1 min-h-[120px]' : isCompact ? 'mx-3 my-2.5 min-h-[108px] p-3' : 'mx-4 my-3 min-h-[150px] p-4'}
+        ${dense ? 'mx-3 my-2 min-h-[112px] p-2.5' : 'mx-4 my-3 min-h-[150px] p-4'}
       `}>
         {/* Scan line effect when processing */}
         {currentStatus === 'processing' && (
@@ -792,32 +628,24 @@ function UploadDocCard({
         {currentStatus === 'idle' && (
           <div className="flex flex-col items-center gap-2.5 text-slate-500 transition-colors">
             {/* Ícono central — desktop y móvil */}
-            <div className={`relative rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none ${isCompact || isBanner ? 'w-11 h-11' : 'w-14 h-14'}`}>
-              <Upload size={isCompact || isBanner ? 18 : 20} strokeWidth={2.2} className="group-hover:scale-110 transition-transform" />
+            <div className={`relative rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none ${dense ? 'w-11 h-11' : 'w-14 h-14'}`}>
+              <Upload size={dense ? 18 : 20} strokeWidth={2.2} className="group-hover:scale-110 transition-transform" />
               <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-indigo-500 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 shadow-[0_4px_12px_rgba(15,26,90,0.4)]">
                 <span className="text-[0.6rem] font-black">+</span>
               </span>
             </div>
 
             {/* Desktop: texto de arrastre */}
-            {!isCompact && (
-              <span className="hidden sm:inline-flex text-xs font-bold items-center gap-1.5 pointer-events-none group-hover:text-indigo-500 transition-colors">
-                <MousePointerClick size={11} className="opacity-70" />
-                Click o arrastra aquí
-              </span>
-            )}
-
-            {(isCompact || isBanner) && (
-              <span className="hidden sm:inline text-[0.68rem] font-semibold text-slate-500 pointer-events-none">
-                Click o arrastra
-              </span>
-            )}
+            <span className={`hidden sm:inline-flex font-bold items-center gap-1.5 pointer-events-none group-hover:text-indigo-500 transition-colors ${dense ? 'text-[0.68rem]' : 'text-xs'}`}>
+              <MousePointerClick size={11} className="opacity-70" />
+              {dense ? 'Click o arrastra' : 'Click o arrastra aquí'}
+            </span>
 
             <span className="sm:hidden text-xs font-semibold text-slate-600 text-center px-2 pointer-events-none">
               Usa los botones de abajo para subir
             </span>
 
-            {!isCompact && (
+            {!dense && (
               <span className="hidden sm:inline text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
             )}
           </div>
@@ -825,7 +653,7 @@ function UploadDocCard({
 
         {isLoading && (
           <div className="flex flex-col items-center gap-2.5 z-10 pointer-events-none">
-            <CircularProgress progress={docState.progress ?? 0} size={72} strokeWidth={5}>
+            <CircularProgress progress={docState.progress ?? 0} size={dense ? 56 : 72} strokeWidth={5}>
               <div className="text-center">
                 <p className="text-[1rem] font-black text-indigo-600 leading-none font-mono">
                   {Math.round(docState.progress ?? 0)}
@@ -878,11 +706,9 @@ function UploadDocCard({
           onGallery={openGallery}
         />
       )}
-      </div>
 
-      {/* Action footer (only when done) */}
       {isDone && (
-        <div className={`flex flex-col gap-2 ${isCompact ? 'p-3 pt-1' : 'p-4 pt-2'}`}>
+        <div className={`flex flex-col gap-2 ${dense ? 'p-3 pt-1' : 'p-4 pt-2'}`}>
           <div className="flex gap-2">
           {docState.file?.url && (
             <button
@@ -1019,12 +845,9 @@ export function OcrStep() {
       optional: effectiveOptional.includes(d.type),
     })),
   );
-  const requiredVisibleDocs = visibleDocs.filter((d) => !d.optional);
-  const optionalVisibleDocs = visibleDocs.filter((d) => d.optional);
-  const requiredGridClass = resolveOcrDocGridClass(requiredVisibleDocs.length);
-  const optionalGridClass = resolveOcrDocGridClass(optionalVisibleDocs.length);
+  const docGridClass = resolveOcrDocGridClass(visibleDocs.length);
+  const cardDense = visibleDocs.length >= 4;
   const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
-  const useTarjetaListLayout = Boolean(tarjeta);
   const allRequiredDone =
     effectiveRequired.length > 0
     && effectiveRequired.every((d) => documents[d]?.status === 'done');
@@ -1139,124 +962,53 @@ export function OcrStep() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero / progreso */}
-      {useTarjetaListLayout ? (
-        <div className="mb-6 max-w-2xl mx-auto">
-          <p className="text-sm text-slate-600 leading-relaxed text-center sm:text-left">
-            Sube cada documento. El OCR precargará tus datos automáticamente.
-          </p>
-          <div className="mt-4 flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-[#0F1A5A] transition-all duration-500 ease-out"
-                style={{ width: `${completionPct}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-xs font-bold tabular-nums text-slate-600">
-              {completedCount}/{effectiveRequired.length}
-            </span>
-          </div>
-          {tarjetaNeedsFactura && (
-            <p className="mt-3 text-center text-xs text-slate-500 sm:text-left">
-              Incluye la factura fiscal de farmacia (número junto a <strong className="text-slate-700">FACTURA</strong>).
-            </p>
-          )}
-        </div>
-      ) : (
-        <div className="mb-7 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="md:col-span-2 flex flex-col justify-center">
-            <p className="text-slate-600 text-sm leading-relaxed">
-              Carga tus documentos y los analizaremos con OCR para
-              <span className="font-bold text-slate-800"> precargar la información</span> en el siguiente paso.
-              Aceptamos JPG, PNG, SVG o PDF.
-              {product.id === 'rcv' && (
-                <span className="block mt-2 text-indigo-700 font-semibold text-xs">
-                  Documentos originales: cédula, licencia de conducir y certificado del vehículo
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="relative bg-gradient-to-br from-indigo-50 via-violet-50/60 to-white border border-indigo-100 rounded-2xl p-4 overflow-hidden">
-            <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-violet-500/10 blur-2xl" />
-            <div className="relative flex items-end gap-3">
-              <span className="text-5xl font-display font-black gradient-text-indigo leading-none">
-                <AnimatedCounter value={completedCount} />
+      <div className="mb-7 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 flex flex-col justify-center">
+          <p className="text-slate-600 text-sm leading-relaxed">
+            Carga tus documentos y los analizaremos con OCR para
+            <span className="font-bold text-slate-800"> precargar la información</span> en el siguiente paso.
+            Aceptamos JPG, PNG, SVG o PDF.
+            {product.id === 'rcv' && (
+              <span className="block mt-2 text-indigo-700 font-semibold text-xs">
+                Documentos originales: cédula, licencia de conducir y certificado del vehículo
+                {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
               </span>
-              <div className="pb-1">
-                <p className="text-xs text-slate-500 font-semibold leading-tight">
-                  de <span className="font-mono text-slate-700">{effectiveRequired.length}</span> obligatorios
-                </p>
-                <p className="text-[0.65rem] text-slate-500 mt-0.5">documentos verificados</p>
-              </div>
-            </div>
-            <div className="mt-3 h-1 rounded-full bg-indigo-100 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 ease-out"
-                style={{ width: `${completionPct}%` }}
-              />
-            </div>
-          </div>
+            )}
+          </p>
         </div>
-      )}
-
-      {/* Demo loader bar — oculto en producción */}
-
-      {/* Flujo tarjeta — lista unificada */}
-      {useTarjetaListLayout ? (
-        <div className="mx-auto max-w-2xl space-y-3">
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-100">
-            {requiredVisibleDocs.map((doc) => (
-              <UploadDocCard
-                key={doc.type}
-                config={doc}
-                layout="row"
-                onOpenPreview={(file, title) => setPreview({ file, title })}
-              />
-            ))}
-          </div>
-          {optionalVisibleDocs.length > 0 && (
-            <div className="overflow-hidden rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 divide-y divide-slate-100">
-              {optionalVisibleDocs.map((doc) => (
-                <UploadDocCard
-                  key={doc.type}
-                  config={doc}
-                  layout="row"
-                  onOpenPreview={(file, title) => setPreview({ file, title })}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <>
-          {requiredVisibleDocs.length > 0 && (
-            <div className={requiredGridClass}>
-              {requiredVisibleDocs.map((doc) => (
-                <UploadDocCard
-                  key={doc.type}
-                  config={doc}
-                  onOpenPreview={(file, title) => setPreview({ file, title })}
-                />
-              ))}
-            </div>
-          )}
-          {optionalVisibleDocs.length > 0 && (
-            <div className="mt-8">
-              <p className="mb-4 text-center text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-400">
-                Documentos opcionales
+        <div className="relative bg-gradient-to-br from-indigo-50 via-violet-50/60 to-white border border-indigo-100 rounded-2xl p-4 overflow-hidden">
+          <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-violet-500/10 blur-2xl" />
+          <div className="relative flex items-end gap-3">
+            <span className="text-5xl font-display font-black gradient-text-indigo leading-none">
+              <AnimatedCounter value={completedCount} />
+            </span>
+            <div className="pb-1">
+              <p className="text-xs text-slate-500 font-semibold leading-tight">
+                de <span className="font-mono text-slate-700">{effectiveRequired.length}</span> obligatorios
               </p>
-              <div className={optionalGridClass}>
-                {optionalVisibleDocs.map((doc) => (
-                  <UploadDocCard
-                    key={doc.type}
-                    config={doc}
-                    onOpenPreview={(file, title) => setPreview({ file, title })}
-                  />
-                ))}
-              </div>
+              <p className="text-[0.65rem] text-slate-500 mt-0.5">documentos verificados</p>
             </div>
-          )}
-        </>
+          </div>
+          <div className="mt-3 h-1 rounded-full bg-indigo-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 ease-out"
+              style={{ width: `${completionPct}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {visibleDocs.length > 0 && (
+        <div className={docGridClass}>
+          {visibleDocs.map((doc) => (
+            <UploadDocCard
+              key={doc.type}
+              config={doc}
+              dense={cardDense}
+              onOpenPreview={(file, title) => setPreview({ file, title })}
+            />
+          ))}
+        </div>
       )}
 
       {/* OCR success banner */}
