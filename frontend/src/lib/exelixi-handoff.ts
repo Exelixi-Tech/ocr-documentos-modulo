@@ -59,6 +59,7 @@ export interface ExelixiOcrHandoff {
   asegurado?: Partial<PersonData>;
   savedAt: number;
   tarjeta?: import('../features/activacion-tarjeta/types').TarjetaActivacion | null;
+  metadataCanal?: Record<string, unknown> | null;
 }
 
 function mapDocOcr(doc?: DocumentState): OcrFields | undefined {
@@ -77,6 +78,7 @@ export function buildOcrHandoff(
     sameInsured?: boolean;
     asegurado?: Partial<PersonData>;
     tarjeta?: import('../features/activacion-tarjeta/types').TarjetaActivacion | null;
+    metadataCanal?: Record<string, unknown> | null;
   },
 ): ExelixiOcrHandoff {
   const ocrData: Partial<Record<OcrDocType, OcrFields>> = {};
@@ -111,6 +113,7 @@ export function buildOcrHandoff(
     sameInsured: personRoles?.sameInsured,
     asegurado: personRoles?.asegurado,
     tarjeta: personRoles?.tarjeta ?? null,
+    metadataCanal: personRoles?.metadataCanal ?? null,
     savedAt: Date.now(),
   };
 }

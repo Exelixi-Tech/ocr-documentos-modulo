@@ -168,6 +168,7 @@ export default function App() {
           sameInsured: roles.sameInsured,
           asegurado: roles.asegurado,
           tarjeta: state.tarjeta,
+          metadataCanal: state.metadataCanal,
         },
       ),
     );

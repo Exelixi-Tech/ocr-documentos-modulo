@@ -5,6 +5,7 @@ import { publicAsset } from '../../lib/app-base';
 import { toast } from '../../store/toastStore';
 import { validateCard } from './api';
 import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
+import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
 /**
@@ -35,20 +36,12 @@ export function ActivacionTarjetaEntry() {
       const vehicleKind = resolveTarjetaPlanVehicleKind(tarjeta);
       persistProductFromHints({ product: 'rcv' });
       const current = useWizardStore.getState().metadataCanal || {};
-      setMetadataCanal({
+      const canalMeta = metadataFromTarjetaActivacion(tarjeta, {
         ...current,
-        flujo: 'tarjeta',
-        skipPayment: tarjeta.bfactura === 1,
-        bfactura: tarjeta.bfactura,
-        xcodigo_unico: tarjeta.xcodigoUnico,
-        ctarjeta: tarjeta.ctarjeta,
-        cplan: tarjeta.cplan,
-        cramo: tarjeta.cramo,
-        ccanalalt: tarjeta.ccanalalt,
-        cproductor: tarjeta.cproductor,
-        cproducto: tarjeta.cproducto,
         tarjetaVehicleKind: vehicleKind,
       });
+      setMetadataCanal(canalMeta);
+      persistTarjetaMetadataCanal(canalMeta);
       if (vehicleKind) {
         setVehicle({ ctipo: ctipoForTarjetaPlan(vehicleKind) });
       }
