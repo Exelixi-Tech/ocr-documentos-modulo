@@ -25,6 +25,7 @@ import {
 } from './lib/builder-catalog';
 import { adjustDocsForBinacionalCarnet } from './lib/ocr-binacional';
 import { buildOcrHandoff, continueToFormularioModule } from './lib/exelixi-handoff';
+import { shouldUseTarjetaPublicApi } from './features/activacion-tarjeta/flow';
 import { resolveOcrPersonRoles } from './lib/ocr-person-roles';
 import {
   getOptionalDocs,
@@ -167,8 +168,8 @@ export default function App() {
           conductor: roles.conductor,
           sameInsured: roles.sameInsured,
           asegurado: roles.asegurado,
-          tarjeta: state.tarjeta,
-          metadataCanal: state.metadataCanal,
+          tarjeta: shouldUseTarjetaPublicApi() ? state.tarjeta : null,
+          metadataCanal: shouldUseTarjetaPublicApi() ? state.metadataCanal : null,
         },
       ),
     );
