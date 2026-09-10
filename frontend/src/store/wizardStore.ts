@@ -91,6 +91,7 @@ interface WizardActions {
   setDiligencia: (data: Partial<DiligenciaState> | null) => void;
   /** Marca que el titular de la póliza fue detectado por discrepancia OCR cédula vs carnet. */
   setTitularFromCarnet: (v: boolean) => void;
+  setTarjeta: (tarjeta: import('../features/activacion-tarjeta/types').TarjetaActivacion | null) => void;
   reset: () => void;
 }
 
@@ -106,6 +107,7 @@ const initialState: WizardState = {
     certificado: defaultDoc(),
     rif: defaultDoc(),
     pasaporte: defaultDoc(),
+    factura: defaultDoc(),
   },
   ocrDone: false,
   tomador: defaultTomador(),
@@ -132,6 +134,7 @@ const initialState: WizardState = {
   carnetBinacionalMode: false,
   diligencia: buildDiligenciaState({ itipoDiligencia: 'S', clasificadoEn: 'ocr' }),
   titularFromCarnet: false,
+  tarjeta: null,
 };
 
 export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
@@ -239,6 +242,8 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
       });
       return { diligencia: { ...base, ...data } };
     }),
+
+  setTarjeta: (tarjeta) => set({ tarjeta }),
 
   reset: () => set({ ...initialState, builderProduct: useBuilderCatalog() ? readStoredBuilderProduct() : null }),
 }));

@@ -5,7 +5,8 @@ export type DocType =
   | 'licencia'
   | 'certificado'
   | 'rif'
-  | 'pasaporte';
+  | 'pasaporte'
+  | 'factura';
 
 export type { DiligenciaState, TipoDiligencia } from '../lib/diligencia';
 
@@ -54,6 +55,7 @@ export interface OcrResult {
   propietarioNombre?: string;
   propietarioApellido?: string;
   propietarioIdentificacion?: string;
+  nfactura?: string;
 }
 
 export interface DocumentState {
@@ -231,4 +233,6 @@ export interface WizardState {
    *   - sameInsured = false
    */
   titularFromCarnet: boolean;
+  /** Flujo RCV por tarjeta de farmacia. Null en el RCV normal. */
+  tarjeta: import('../features/activacion-tarjeta/types').TarjetaActivacion | null;
 }

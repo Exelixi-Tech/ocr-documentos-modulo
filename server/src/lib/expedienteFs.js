@@ -18,6 +18,7 @@ const DOC_FILE_NAMES = {
   certificado: 'certificado',
   rif: 'rif',
   pasaporte: 'pasaporte',
+  factura: 'factura',
 };
 
 /**

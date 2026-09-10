@@ -34,6 +34,13 @@ export interface UploadResponse {
  * Error que se lanza cuando el documento subido no coincide
  * con el tipo esperado por el slot (validacion del header por OCR).
  */
+export class PlanVehicleMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PlanVehicleMismatchError';
+  }
+}
+
 export class DocTypeMismatchError extends Error {
   expected: DocType;
   detected: string;
@@ -63,7 +70,13 @@ export async function uploadDocument(
   file: File,
   docType: DocType,
   onProgress: (pct: number) => void,
-  extras?: { cedulaTitular?: string; empresaNombre?: string },
+  extras?: {
+    cedulaTitular?: string;
+    empresaNombre?: string;
+    tarjetaCplan?: string | null;
+    tarjetaCproducto?: string | null;
+    tarjetaNombreProducto?: string | null;
+  },
 ): Promise<UploadResponse> {
   const form = new FormData();
   form.append('file', file);
@@ -71,6 +84,9 @@ export async function uploadDocument(
   const cedula = String(extras?.cedulaTitular || '').replace(/\D/g, '');
   if (cedula) form.append('cedulaTitular', cedula);
   if (extras?.empresaNombre) form.append('empresaNombre', extras.empresaNombre);
+  if (extras?.tarjetaCplan) form.append('tarjetaCplan', extras.tarjetaCplan);
+  if (extras?.tarjetaCproducto) form.append('tarjetaCproducto', extras.tarjetaCproducto);
+  if (extras?.tarjetaNombreProducto) form.append('tarjetaNombreProducto', extras.tarjetaNombreProducto);
 
   try {
     const response = await api.post<UploadResponse>('/documents/upload', form, {
@@ -106,6 +122,10 @@ export async function uploadDocument(
         expectedLabel: data.expectedLabel ?? String(docType),
         detectedLabel: data.detectedLabel ?? 'documento no reconocido',
       });
+    }
+
+    if (axErr.response?.status === 422 && data?.code === 'PLAN_VEHICLE_MISMATCH') {
+      throw new PlanVehicleMismatchError(data.message ?? 'El carnet no corresponde al plan de la tarjeta.');
     }
 
     throw err;

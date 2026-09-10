@@ -9,7 +9,7 @@
  * no romper el flujo del usuario, pero el error queda registrado.
  */
 
-const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte'];
+const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura'];
 
 const DOC_TYPE_LABELS = {
   cedula: 'Cedula de Identidad',
@@ -17,6 +17,7 @@ const DOC_TYPE_LABELS = {
   certificado: 'Certificado de Circulacion',
   rif: 'Registro Unico de Informacion Fiscal (RIF)',
   pasaporte: 'Pasaporte',
+  factura: 'Factura fiscal',
   desconocido: 'documento no reconocido',
 };
 
@@ -119,7 +120,17 @@ function simulateOcr(docType) {
  * @param {string} docType    cedula | licencia | certificado | rif.
  * @returns {Promise<{provider:string, fields:object, meta?:object, error?:string}>}
  */
-async function runOcr(file, docType) {
+function readTarjetaPlanFromRequest(tarjetaHints) {
+  if (!tarjetaHints || typeof tarjetaHints !== 'object') return null;
+  const { resolveTarjetaPlanVehicleKind } = require('../lib/tarjetaPlanVehicle');
+  return resolveTarjetaPlanVehicleKind({
+    cplan: tarjetaHints.cplan,
+    cproducto: tarjetaHints.cproducto,
+    nombreProducto: tarjetaHints.nombreProducto,
+  });
+}
+
+async function runOcr(file, docType, tarjetaHints) {
   if (!VALID_DOC_TYPES.includes(docType)) {
     throw new Error(`Tipo de documento invalido: ${docType}`);
   }
@@ -162,6 +173,27 @@ async function runOcr(file, docType) {
               'Por favor sube el archivo correcto en este espacio.',
           },
         };
+      }
+
+      const planKind = docType === 'certificado' ? readTarjetaPlanFromRequest(tarjetaHints) : null;
+      if (planKind && result.fields) {
+        const { validateCertificadoForTarjetaPlan } = require('../lib/tarjetaPlanVehicle');
+        const planCheck = validateCertificadoForTarjetaPlan(planKind, result.fields);
+        if (!planCheck.ok) {
+          console.warn(
+            `[OCR] plan vehicle mismatch: plan=${planKind} docType=${docType} ` +
+            `cplan=${tarjetaHints?.cplan || ''}`,
+          );
+          return {
+            provider: 'gemini',
+            fields: null,
+            meta: result.meta,
+            planMismatch: {
+              message: planCheck.message,
+              planKind,
+            },
+          };
+        }
       }
 
       // Limpiamos el campo interno de validacion antes de devolver al frontend.

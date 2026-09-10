@@ -176,7 +176,13 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
     const validation = validateDocument(file, docType);
     if (!validation.valid) return res.status(422).json({ success: false, message: validation.message });
 
-    const ocrResult = await runOcr(file, docType);
+    const tarjetaHints = {
+      cplan: req.body?.tarjetaCplan,
+      cproducto: req.body?.tarjetaCproducto,
+      nombreProducto: req.body?.tarjetaNombreProducto,
+    };
+
+    const ocrResult = await runOcr(file, docType, tarjetaHints);
 
     let fileHash = null;
     try {
@@ -196,6 +202,18 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
         detected: ocrResult.mismatch.detected,
         expectedLabel: ocrResult.mismatch.expectedLabel,
         detectedLabel: ocrResult.mismatch.detectedLabel,
+        ocrProvider: ocrResult.provider,
+        ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),
+      });
+    }
+
+    if (ocrResult.planMismatch) {
+      await discardUpload(normalized.filePath, req.file.path);
+      return res.status(422).json({
+        success: false,
+        code: 'PLAN_VEHICLE_MISMATCH',
+        message: ocrResult.planMismatch.message,
+        planKind: ocrResult.planMismatch.planKind,
         ocrProvider: ocrResult.provider,
         ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),
       });

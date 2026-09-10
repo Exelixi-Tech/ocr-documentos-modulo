@@ -3,6 +3,7 @@ import type { BuilderCatalogProduct } from '../types/builder-catalog';
 import type { DiligenciaState } from './diligencia';
 import { persistBuilderProduct, useBuilderCatalog } from './builder-catalog';
 import { getProductId } from './product';
+import { shouldUseTarjetaPublicApi } from '../features/activacion-tarjeta/flow';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
 
@@ -13,7 +14,8 @@ export type OcrDocType =
   | 'licencia'
   | 'certificado'
   | 'rif'
-  | 'pasaporte';
+  | 'pasaporte'
+  | 'factura';
 
 export interface OcrFields {
   nombre?: string;
@@ -56,6 +58,8 @@ export interface ExelixiOcrHandoff {
   sameInsured?: boolean;
   asegurado?: Partial<PersonData>;
   savedAt: number;
+  tarjeta?: import('../features/activacion-tarjeta/types').TarjetaActivacion | null;
+  metadataCanal?: Record<string, unknown> | null;
 }
 
 function mapDocOcr(doc?: DocumentState): OcrFields | undefined {
@@ -73,6 +77,8 @@ export function buildOcrHandoff(
     conductor?: Partial<PersonData>;
     sameInsured?: boolean;
     asegurado?: Partial<PersonData>;
+    tarjeta?: import('../features/activacion-tarjeta/types').TarjetaActivacion | null;
+    metadataCanal?: Record<string, unknown> | null;
   },
 ): ExelixiOcrHandoff {
   const ocrData: Partial<Record<OcrDocType, OcrFields>> = {};
@@ -84,6 +90,7 @@ export function buildOcrHandoff(
     'certificado',
     'rif',
     'pasaporte',
+    'factura',
   ];
   const documentHashes: Partial<Record<DocType, string>> = {};
 
@@ -105,6 +112,8 @@ export function buildOcrHandoff(
     conductor: personRoles?.conductor,
     sameInsured: personRoles?.sameInsured,
     asegurado: personRoles?.asegurado,
+    tarjeta: personRoles?.tarjeta ?? null,
+    metadataCanal: personRoles?.metadataCanal ?? null,
     savedAt: Date.now(),
   };
 }
@@ -180,6 +189,7 @@ export function getFormularioContinueUrl(): string {
       || sessionStorage.getItem(getModuleTokenKey());
     if (sid) params.set('sid', sid);
     if (nexusToken) params.set('nexus_token', nexusToken);
+    if (shouldUseTarjetaPublicApi()) params.set('flujo', 'tarjeta');
   } catch {
     try {
       const stored = sessionStorage.getItem('exelixi_product');

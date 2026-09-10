@@ -5,7 +5,14 @@ import {
   MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
-import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
+import { uploadDocument, DocTypeMismatchError, PlanVehicleMismatchError } from '../../lib/api';
+import { validateBill } from '../activacion-tarjeta/api';
+import { appendFacturaIfNeeded } from '../activacion-tarjeta/docs';
+import { normalizeNfactura } from '../activacion-tarjeta/flow';
+import {
+  resolveTarjetaPlanVehicleKind,
+  validateCertificadoForTarjetaPlan,
+} from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
@@ -186,14 +193,52 @@ const DOCS: DocConfig[] = [
     optional: true,
     accent: 'from-slate-400 to-slate-500',
   },
+  {
+    type: 'factura',
+    label: 'Factura fiscal',
+    description: 'Ticket de farmacia · número FACTURA',
+    Icon: FileText,
+    accent: 'from-sky-500 to-blue-600',
+  },
 ];
+
+/** Orden visual: obligatorios del vehículo primero, factura tarjeta, opcionales al final. */
+const DOC_DISPLAY_ORDER: DocType[] = [
+  'cedula',
+  'cedula_titular',
+  'cedula_beneficiario',
+  'licencia',
+  'certificado',
+  'factura',
+  'pasaporte',
+  'rif',
+];
+
+function sortDocConfigs(docs: DocConfig[]): DocConfig[] {
+  const order = new Map(DOC_DISPLAY_ORDER.map((type, index) => [type, index]));
+  return [...docs].sort(
+    (a, b) => (order.get(a.type) ?? 99) - (order.get(b.type) ?? 99),
+  );
+}
+
+/** Grilla: documentos en fila según cantidad (4 en desktop, 5 si hay RIF). */
+function resolveOcrDocGridClass(count: number): string {
+  if (count <= 0) return '';
+  if (count === 1) return 'grid grid-cols-1 gap-4 max-w-sm mx-auto';
+  if (count === 2) return 'grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto';
+  if (count === 3) return 'grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-5xl mx-auto';
+  if (count === 4) return 'grid grid-cols-2 lg:grid-cols-4 gap-3 max-w-6xl mx-auto';
+  return 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 max-w-[88rem] mx-auto';
+}
 
 function UploadDocCard({
   config,
   onOpenPreview,
+  dense = false,
 }: {
   config: DocConfig;
   onOpenPreview: (file: DocumentFile, title: string) => void;
+  dense?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -324,9 +369,15 @@ function UploadDocCard({
         || wiz.documents.cedula_titular?.ocr?.identificacion
         || '',
       ).replace(/\D/g, '');
+      const tarjeta = wiz.tarjeta;
       const result = await uploadDocument(file, config.type, (pct) => {
         setDocState(config.type, { progress: pct });
-      }, { cedulaTitular: cedulaTitular || undefined });
+      }, {
+        cedulaTitular: cedulaTitular || undefined,
+        tarjetaCplan: tarjeta?.cplan,
+        tarjetaCproducto: tarjeta?.cproducto,
+        tarjetaNombreProducto: tarjeta?.nombreProducto,
+      });
 
       setDocState(config.type, { status: 'processing', progress: 100 });
       await new Promise((r) => setTimeout(r, 800));
@@ -344,6 +395,42 @@ function UploadDocCard({
           error: 'No se pudo leer el documento. Inténtalo de nuevo.',
         });
         return;
+      }
+
+      if (config.type === 'certificado' && tarjeta) {
+        const planKind = resolveTarjetaPlanVehicleKind(tarjeta);
+        if (planKind) {
+          const check = validateCertificadoForTarjetaPlan(
+            planKind,
+            result.ocr as Record<string, unknown> | undefined,
+          );
+          if (check.ok === false) {
+            toast.warning('Carnet no compatible con la tarjeta', check.message, 8000);
+            setDocState(config.type, {
+              status: 'error',
+              progress: 0,
+              error: check.message,
+            });
+            return;
+          }
+        }
+      }
+
+      if (config.type === 'factura') {
+        const nfactura = normalizeNfactura(result.ocr?.nfactura);
+        const xcodigo = useWizardStore.getState().tarjeta?.xcodigoUnico;
+        if (!nfactura) {
+          throw new Error('No se leyó el número de FACTURA. Sube una foto más nítida.');
+        }
+        if (!xcodigo) {
+          throw new Error('Falta el código único de la tarjeta. Vuelve a validar el código.');
+        }
+        await validateBill(xcodigo, nfactura);
+        const prev = useWizardStore.getState().tarjeta!;
+        useWizardStore.getState().setTarjeta({ ...prev, nfactura });
+        const meta = useWizardStore.getState().metadataCanal || {};
+        useWizardStore.getState().setMetadataCanal({ ...meta, nfactura });
+        toast.success('Factura validada', `Número ${nfactura}`, 4000);
       }
 
       setDocState(config.type, {
@@ -430,6 +517,16 @@ function UploadDocCard({
         return;
       }
 
+      if (err instanceof PlanVehicleMismatchError) {
+        toast.warning('Carnet no compatible con la tarjeta', err.message, 8000);
+        setDocState(config.type, {
+          status: 'error',
+          progress: 0,
+          error: err.message,
+        });
+        return;
+      }
+
       const data = (err as { response?: { data?: { code?: string; message?: string } } })?.response?.data;
       const message =
         data?.code === 'OCR_PROVIDER_FAILED'
@@ -449,6 +546,13 @@ function UploadDocCard({
 
   const openCamera = () => cameraRef.current?.click();
   const openGallery = () => inputRef.current?.click();
+
+  function resetDoc() {
+    setDocState(config.type, { status: 'idle', progress: 0, file: undefined, ocr: undefined });
+    useWizardStore.getState().setOcrDone(false);
+    if (config.type === 'certificado') setCarnetBinacionalMode(false);
+    if (inputRef.current) inputRef.current.value = '';
+  }
 
   return (
     <div
@@ -473,18 +577,17 @@ function UploadDocCard({
       onDragLeave={() => setDragOver(false)}
       onDrop={handleDrop}
     >
-      {/* Decorative accent corner */}
       {!isDone && !isLoading && currentStatus !== 'error' && (
         <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gradient-to-br ${config.accent} opacity-[0.08] blur-2xl pointer-events-none`} />
       )}
 
       <HiddenFileInputs inputRef={inputRef} cameraRef={cameraRef} onPick={handleFile} />
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between p-4 pb-0 relative">
+      <div className={`flex items-center justify-between ${dense ? 'p-3 pb-0' : 'p-4 pb-0'} relative`}>
         <div
           className={`
-            w-9 h-9 rounded-xl grid place-items-center transition-all
+            rounded-xl grid place-items-center transition-all
+            ${dense ? 'w-8 h-8' : 'w-9 h-9'}
             ${isDone
               ? 'bg-emerald-500 text-white shadow-[0_4px_14px_rgba(16,185,129,0.32)]'
               : isLoading
@@ -495,21 +598,26 @@ function UploadDocCard({
             }
           `}
         >
-          <Icon size={16} strokeWidth={2.2} />
+          <Icon size={dense ? 14 : 16} strokeWidth={2.2} />
         </div>
         <Badge variant={statusVariant[currentStatus]}>
           {statusLabel[currentStatus]}
         </Badge>
       </div>
 
-      {/* Title */}
-      <div className="px-4 pt-3 pb-2 relative">
-        <h3 className="font-display font-bold text-slate-900 text-sm leading-tight">{config.label}</h3>
-        <p className="text-[0.78rem] text-slate-500 mt-0.5">{config.description}</p>
+      <div className={`relative ${dense ? 'px-3 pt-2 pb-1' : 'px-4 pt-3 pb-2'}`}>
+        <h3 className={`font-display font-bold text-slate-900 leading-tight ${dense ? 'text-[0.82rem]' : 'text-sm'}`}>
+          {config.label}
+        </h3>
+        <p className={`text-slate-500 mt-0.5 ${dense ? 'text-[0.72rem] leading-snug' : 'text-[0.78rem]'}`}>
+          {config.description}
+        </p>
       </div>
 
-      {/* Visual zone */}
-      <div className="mx-4 my-3 rounded-xl bg-slate-50 border border-slate-100 min-h-[150px] flex items-center justify-center p-4 relative overflow-hidden">
+      <div className={`
+        rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center relative overflow-hidden
+        ${dense ? 'mx-3 my-2 min-h-[112px] p-2.5' : 'mx-4 my-3 min-h-[150px] p-4'}
+      `}>
         {/* Scan line effect when processing */}
         {currentStatus === 'processing' && (
           <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500 to-transparent shadow-[0_0_12px_rgba(15,26,90,0.6)] pointer-events-none"
@@ -520,30 +628,32 @@ function UploadDocCard({
         {currentStatus === 'idle' && (
           <div className="flex flex-col items-center gap-2.5 text-slate-500 transition-colors">
             {/* Ícono central — desktop y móvil */}
-            <div className="relative w-14 h-14 rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none">
-              <Upload size={20} strokeWidth={2.2} className="group-hover:scale-110 transition-transform" />
+            <div className={`relative rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none ${dense ? 'w-11 h-11' : 'w-14 h-14'}`}>
+              <Upload size={dense ? 18 : 20} strokeWidth={2.2} className="group-hover:scale-110 transition-transform" />
               <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-indigo-500 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 shadow-[0_4px_12px_rgba(15,26,90,0.4)]">
                 <span className="text-[0.6rem] font-black">+</span>
               </span>
             </div>
 
             {/* Desktop: texto de arrastre */}
-            <span className="hidden sm:inline-flex text-xs font-bold items-center gap-1.5 pointer-events-none group-hover:text-indigo-500 transition-colors">
+            <span className={`hidden sm:inline-flex font-bold items-center gap-1.5 pointer-events-none group-hover:text-indigo-500 transition-colors ${dense ? 'text-[0.68rem]' : 'text-xs'}`}>
               <MousePointerClick size={11} className="opacity-70" />
-              Click o arrastra aquí
+              {dense ? 'Click o arrastra' : 'Click o arrastra aquí'}
             </span>
 
             <span className="sm:hidden text-xs font-semibold text-slate-600 text-center px-2 pointer-events-none">
               Usa los botones de abajo para subir
             </span>
 
-            <span className="hidden sm:inline text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
+            {!dense && (
+              <span className="hidden sm:inline text-[0.62rem] text-slate-500 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
+            )}
           </div>
         )}
 
         {isLoading && (
           <div className="flex flex-col items-center gap-2.5 z-10 pointer-events-none">
-            <CircularProgress progress={docState.progress ?? 0} size={72} strokeWidth={5}>
+            <CircularProgress progress={docState.progress ?? 0} size={dense ? 56 : 72} strokeWidth={5}>
               <div className="text-center">
                 <p className="text-[1rem] font-black text-indigo-600 leading-none font-mono">
                   {Math.round(docState.progress ?? 0)}
@@ -597,9 +707,8 @@ function UploadDocCard({
         />
       )}
 
-      {/* Action footer (only when done) */}
       {isDone && (
-        <div className="p-4 pt-2 flex flex-col gap-2">
+        <div className={`flex flex-col gap-2 ${dense ? 'p-3 pt-1' : 'p-4 pt-2'}`}>
           <div className="flex gap-2">
           {docState.file?.url && (
             <button
@@ -615,10 +724,7 @@ function UploadDocCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setDocState(config.type, { status: 'idle', progress: 0, file: undefined, ocr: undefined });
-              useWizardStore.getState().setOcrDone(false);
-              if (config.type === 'certificado') setCarnetBinacionalMode(false);
-              if (inputRef.current) inputRef.current.value = '';
+              resetDoc();
             }}
             className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-colors"
           >
@@ -659,7 +765,7 @@ export function OcrStep() {
   const {
     documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
     builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
-    titularFromCarnet, asegurado, hasDriver, conductor,
+    titularFromCarnet, asegurado, hasDriver, conductor, tarjeta,
   } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
@@ -710,8 +816,11 @@ export function OcrStep() {
     }
   }
 
+  const binacionalDocs = adjustDocsForBinacionalCarnet(
+    requiredDocs, optionalDocs, documents, hasVehicle, carnetBinacionalMode,
+  );
   const { requiredDocs: effectiveRequired, optionalDocs: effectiveOptional } =
-    adjustDocsForBinacionalCarnet(requiredDocs, optionalDocs, documents, hasVehicle, carnetBinacionalMode);
+    appendFacturaIfNeeded(binacionalDocs.requiredDocs, binacionalDocs.optionalDocs, tarjeta);
 
   useEffect(() => {
     if (product.id !== 'rcv') return;
@@ -728,27 +837,20 @@ export function OcrStep() {
     });
   }, [product.id, itipoDiligencia, effectiveRequired.join(','), documents, setDiligencia]);
 
-  const visibleDocs = DOCS.filter(
-    (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
-  ).map((d) => ({
-    ...d,
-    optional: effectiveOptional.includes(d.type),
-  }));
+  const visibleDocs = sortDocConfigs(
+    DOCS.filter(
+      (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
+    ).map((d) => ({
+      ...d,
+      optional: effectiveOptional.includes(d.type),
+    })),
+  );
+  const docGridClass = resolveOcrDocGridClass(visibleDocs.length);
+  const cardDense = visibleDocs.length >= 4;
+  const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
   const allRequiredDone =
     effectiveRequired.length > 0
     && effectiveRequired.every((d) => documents[d]?.status === 'done');
-
-  // La grilla de carga se adapta a la cantidad de documentos del producto y se
-  // centra cuando son pocos (p.ej. Funerario: cédula + RIF) para que quede
-  // simétrica en lugar de alinearse a la izquierda.
-  const docGridClass =
-    visibleDocs.length === 1
-      ? 'grid grid-cols-1 gap-4 max-w-sm mx-auto'
-      : visibleDocs.length === 2
-      ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto'
-      : visibleDocs.length === 3
-        ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto'
-        : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4';
 
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
@@ -860,7 +962,6 @@ export function OcrStep() {
 
   return (
     <div className="animate-fade-in">
-      {/* Hero stat */}
       <div className="mb-7 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 flex flex-col justify-center">
           <p className="text-slate-600 text-sm leading-relaxed">
@@ -870,6 +971,7 @@ export function OcrStep() {
             {product.id === 'rcv' && (
               <span className="block mt-2 text-indigo-700 font-semibold text-xs">
                 Documentos originales: cédula, licencia de conducir y certificado del vehículo
+                {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
               </span>
             )}
           </p>
@@ -887,7 +989,6 @@ export function OcrStep() {
               <p className="text-[0.65rem] text-slate-500 mt-0.5">documentos verificados</p>
             </div>
           </div>
-          {/* Mini progress */}
           <div className="mt-3 h-1 rounded-full bg-indigo-100 overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500 ease-out"
@@ -897,18 +998,18 @@ export function OcrStep() {
         </div>
       </div>
 
-      {/* Demo loader bar — oculto en producción */}
-
-      {/* Upload grid */}
-      <div className={docGridClass}>
-        {visibleDocs.map((doc) => (
-          <UploadDocCard
-            key={doc.type}
-            config={doc}
-            onOpenPreview={(file, title) => setPreview({ file, title })}
-          />
-        ))}
-      </div>
+      {visibleDocs.length > 0 && (
+        <div className={docGridClass}>
+          {visibleDocs.map((doc) => (
+            <UploadDocCard
+              key={doc.type}
+              config={doc}
+              dense={cardDense}
+              onOpenPreview={(file, title) => setPreview({ file, title })}
+            />
+          ))}
+        </div>
+      )}
 
       {/* OCR success banner */}
       {allRequiredDone && (() => {

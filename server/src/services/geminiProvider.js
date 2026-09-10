@@ -519,6 +519,7 @@ const CRITICAL_FIELDS = {
   licencia:    ['numeroLicencia'],
   certificado: ['placa'],
   rif:         ['rif'],
+  factura:     ['nfactura'],
 };
 
 /**
@@ -549,7 +550,7 @@ function validateCriticalFields(docType, fields) {
  */
 const DOC_TYPE_PROP = {
   type: Type.STRING,
-  enum: ['cedula', 'licencia', 'certificado', 'rif', 'desconocido'],
+  enum: ['cedula', 'licencia', 'certificado', 'rif', 'factura', 'desconocido'],
   description:
     'Tipo de documento DETECTADO en la imagen, INDEPENDIENTE de lo que se haya pedido. ' +
     'Devuelve "cedula" si la imagen es documento de identidad personal: ' +
@@ -561,6 +562,8 @@ const DOC_TYPE_PROP = {
     'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
     '(Republica de Colombia / Ministerio de Transporte). ' +
     'Devuelve "rif" si dice "REGISTRO UNICO DE INFORMACION FISCAL" (SENIAT). ' +
+    'Devuelve "factura" si es ticket / factura fiscal de farmacia o comercio ' +
+    '(FARMATODO, FARMAHORRO, etc.) con la palabra FACTURA y un numero de factura. ' +
     'Devuelve "desconocido" si no es ninguno de los anteriores.',
 };
 
@@ -738,6 +741,17 @@ const SCHEMAS = {
           'Prefijo del documento del propietario (V, E, J, CC, CE, NIT). ' +
           'Venezuela: V o E según C.I.; Colombia: CC, CE o NIT.',
       },
+      tipoVehiculo: {
+        type: Type.STRING,
+        description:
+          'Clase/tipo impreso en el carnet INTT (ej. PASEO, MOTO PARTICULAR, RUSTICO, CAMIONETA). ' +
+          'Solo Venezuela nacional; null si no aparece.',
+      },
+      claseUso: {
+        type: Type.STRING,
+        description:
+          'Uso o clase adicional en el carnet (ej. PARTICULAR, PUBLICO). Null si no aparece.',
+      },
     },
     required: ['documentoTipo', 'tipoCarnet'],
   },
@@ -757,6 +771,28 @@ const SCHEMAS = {
     },
     required: ['documentoTipo'],
   },
+
+  factura: {
+    type: Type.OBJECT,
+    properties: {
+      documentoTipo: DOC_TYPE_PROP,
+      nfactura: {
+        type: Type.STRING,
+        description:
+          'Numero de FACTURA fiscal (no el ticket). Suele estar a la derecha de la palabra FACTURA, ' +
+          'con ceros a la izquierda (ej. 00162341, 00169063, 00113430). Solo digitos.',
+      },
+      fecha: {
+        type: Type.STRING,
+        description: 'Fecha de la factura si aparece (DD-MM-YYYY o YYYY-MM-DD).',
+      },
+      rifComercio: {
+        type: Type.STRING,
+        description: 'RIF del comercio emisor (ej. J-000202001).',
+      },
+    },
+    required: ['documentoTipo'],
+  },
 };
 
 const VALIDATION_PREAMBLE =
@@ -770,6 +806,7 @@ const VALIDATION_PREAMBLE =
   'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
   '(Republica de Colombia / Ministerio de Transporte); ' +
   '"rif" si ves "REGISTRO UNICO DE INFORMACION FISCAL" del SENIAT; ' +
+  '"factura" si ves un ticket o factura fiscal de comercio (palabra FACTURA + numero); ' +
   '"desconocido" en cualquier otro caso. ' +
   'PASO 2: Si y SOLO SI documentoTipo coincide con el tipo solicitado, extrae los demas campos. ' +
   'Si NO coincide, devuelve solamente documentoTipo y deja el resto en null. ' +
@@ -816,6 +853,8 @@ const PROMPTS = {
     'propietario = nombre del titular si aparece en el documento. ' +
     'identificacionPropietario = C.I. / cédula del titular (solo digitos). ' +
     'tipoDocPropietario = V, E o J segun el prefijo del documento. ' +
+    'tipoVehiculo = clase impresa (PASEO, MOTO PARTICULAR, RUSTICO, CAMIONETA…). ' +
+    'claseUso = uso si aparece (PARTICULAR, PUBLICO…). ' +
     '=== SI tipoCarnet=extranjero (Colombia — placa extranjera) === ' +
     'PLACA = campo PLACA / No. DE PLACA. ' +
     'linea = campo LINEA (equivale al modelo comercial: X5000, T800, 320I…). ' +
@@ -833,11 +872,19 @@ const PROMPTS = {
     VALIDATION_PREAMBLE +
     'Tipo solicitado: REGISTRO UNICO DE INFORMACION FISCAL (RIF) venezolano (SENIAT). ' +
     'Mantiene el formato canonico con guiones (ej. J-12345678-9).',
+  factura:
+    VALIDATION_PREAMBLE +
+    'Tipo solicitado: FACTURA FISCAL venezolana (ticket termico de farmacia o comercio). ' +
+    'Debe verse la palabra FACTURA (no confundir con ticket, caja, ni codigo de barras). ' +
+    'nfactura = el numero alineado con "FACTURA" o "FACTURA:", con ceros a la izquierda. ' +
+    'Ejemplos: 00162341, 00169063, 00113430. Solo digitos. ' +
+    'NO uses el numero de Ticket, Tienda, Caja, ni el serial del pie (T4XX...). ' +
+    'Puede aparecer un item "Tarjeta La Mundial" o "Poliza de Gastos Funerarios"; no lo copies como nfactura.',
 };
 
 const SYSTEM_INSTRUCTION =
-  'Eres un extractor OCR estricto de documentos oficiales de vehiculos e identidad ' +
-  '(Venezuela y Colombia: carnets vehiculares, cedulas de ciudadania, licencias de conduccion). ' +
+  'Eres un extractor OCR estricto de documentos oficiales de vehiculos, identidad ' +
+  'y facturas fiscales venezolanas (tickets de farmacia). ' +
   'SIEMPRE empiezas verificando el header del documento (titulo y emisor) ' +
   'para determinar `documentoTipo`. Devuelve EXCLUSIVAMENTE un JSON con ' +
   'los campos pedidos. Si un campo no es legible o no aparece, usa null. ' +

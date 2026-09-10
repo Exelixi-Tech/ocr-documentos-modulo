@@ -11,6 +11,7 @@
 
 import type { AxiosInstance } from 'axios';
 import { rememberMarketplaceActorFromToken } from './sso-metadata';
+import { shouldUseTarjetaPublicApi, TARJETA_FLOW_HEADER } from '../features/activacion-tarjeta/flow';
 
 /** Lee el token SSO explícito en la query (sso-delegate, advance del bridge). */
 export function getNexusTokenFromUrl(): string | null {
@@ -88,6 +89,8 @@ export function attachNexusTokenAxios(api: AxiosInstance, storageKey: string): v
     const token = getNexusToken(storageKey);
     if (token) {
       config.headers.set('Authorization', `Bearer ${token}`);
+    } else if (shouldUseTarjetaPublicApi()) {
+      config.headers.set(TARJETA_FLOW_HEADER, '1');
     }
     return config;
   });
