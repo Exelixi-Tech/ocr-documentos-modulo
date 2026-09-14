@@ -8,7 +8,11 @@ import { useWizardStore } from '../../store/wizardStore';
 import { uploadDocument, DocTypeMismatchError, PlanVehicleMismatchError } from '../../lib/api';
 import { validateBill } from '../activacion-tarjeta/api';
 import { appendFacturaIfNeeded } from '../activacion-tarjeta/docs';
-import { normalizeNfactura } from '../activacion-tarjeta/flow';
+import {
+  normalizeNfactura,
+  resolveTipoPlacaForTarjetaFlow,
+  shouldUseTarjetaPublicApi,
+} from '../activacion-tarjeta/flow';
 import {
   resolveTarjetaPlanVehicleKind,
   validateCertificadoForTarjetaPlan,
@@ -482,11 +486,14 @@ function UploadDocCard({
 
       if (config.type === 'certificado') {
         const certOcr = result.ocr as Parameters<typeof isBinacionalCarnet>[0];
+        const tarjetaFlow = shouldUseTarjetaPublicApi();
         const binacional =
-          Boolean(result.carnetBinacional) || isBinacionalCarnet(certOcr);
-        const extranjero = isExtranjeroCarnet(certOcr);
+          !tarjetaFlow && (Boolean(result.carnetBinacional) || isBinacionalCarnet(certOcr));
+        const extranjero = !tarjetaFlow && isExtranjeroCarnet(certOcr);
         setCarnetBinacionalMode(binacional);
-        if (binacional) {
+        if (tarjetaFlow) {
+          setVehicle({ tipoPlaca: 'nacional', tipoCarnet: 'nacional' });
+        } else if (binacional) {
           setVehicle({ tipoPlaca: 'binacional', tipoCarnet: 'binacional' });
         } else if (extranjero) {
           setVehicle({ tipoPlaca: 'extranjera' });
@@ -892,7 +899,7 @@ export function OcrStep() {
           serialMotor: cert.serialMotor ?? '',
           cilindrada: cert.cilindrada ?? '',
           tipoCarnet: cert.tipoCarnet,
-          tipoPlaca: resolveTipoPlacaFromCert(cert),
+          tipoPlaca: resolveTipoPlacaForTarjetaFlow(resolveTipoPlacaFromCert(cert)),
         });
 
       }
