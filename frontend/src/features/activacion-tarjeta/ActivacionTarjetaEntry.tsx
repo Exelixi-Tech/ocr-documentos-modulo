@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { CreditCard, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
@@ -9,15 +9,7 @@ import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
 import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
-const BRAND = {
-  navyDeep: '#050924',
-  navy: '#091133',
-  navySoft: '#0F1A5A',
-  blueMid: '#2E6DBF',
-  blueLight: '#4A8DD5',
-  red: '#E84F51',
-  redLight: '#FF6675',
-} as const;
+const STEPS = ['Código', 'Documentos', 'Póliza'] as const;
 
 /**
  * Pantalla de entrada del flujo RCV por tarjeta de activación.
@@ -76,148 +68,144 @@ export function ActivacionTarjetaEntry() {
     <div
       role="dialog"
       aria-label="Activación de tarjeta RCV"
-      className="fixed inset-0 z-[70] grid place-items-center overflow-hidden px-4 py-8"
+      className="fixed inset-0 z-[70] flex min-h-[100dvh] items-center justify-center overflow-hidden p-4 sm:p-6"
     >
-      {/* Fondo brand */}
+      {/* Fondo */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900" />
       <div
-        className="absolute inset-0"
-        style={{
-          background: `linear-gradient(160deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 42%, ${BRAND.navySoft} 100%)`,
-        }}
-      />
-      <div
-        className="absolute inset-0"
+        className="absolute inset-0 opacity-80"
+        aria-hidden
         style={{
           backgroundImage: `
-            radial-gradient(ellipse 55% 45% at 18% 18%, ${BRAND.blueLight}33, transparent 58%),
-            radial-gradient(ellipse 50% 42% at 88% 22%, ${BRAND.blueMid}28, transparent 60%),
-            radial-gradient(ellipse 70% 50% at 50% 115%, ${BRAND.red}22, transparent 62%)
+            radial-gradient(circle at 12% 20%, rgba(74,141,213,0.35), transparent 42%),
+            radial-gradient(circle at 88% 12%, rgba(232,79,81,0.22), transparent 38%),
+            radial-gradient(circle at 50% 100%, rgba(22,42,127,0.5), transparent 55%)
           `,
         }}
       />
       <div
-        className="absolute inset-0 opacity-[0.05] mix-blend-overlay pointer-events-none"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.6'/></svg>\")",
-        }}
+        className="pointer-events-none absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-violet-500/10 blur-3xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -right-16 bottom-1/4 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl"
+        aria-hidden
       />
 
       <div
-        className="relative w-full max-w-[440px]"
-        style={{ animation: 'splashTextIn 0.55s ease-out both' }}
+        className="relative w-full max-w-[460px]"
+        style={{ animation: 'splashTextIn 0.5s ease-out both' }}
       >
-        {/* Tarjeta decorativa */}
-        <div
-          className="mx-auto mb-5 w-[min(100%,320px)] rounded-2xl p-[1px]"
-          style={{
-            background: `linear-gradient(135deg, ${BRAND.blueLight}88, ${BRAND.blueMid}66, ${BRAND.red}77)`,
-            animation: 'splashTextIn 0.6s ease-out 0.08s both',
-          }}
-        >
-          <div
-            className="relative overflow-hidden rounded-[15px] px-5 py-4"
-            style={{
-              background: `linear-gradient(135deg, ${BRAND.navySoft} 0%, ${BRAND.navy} 55%, #0B1444 100%)`,
-            }}
-          >
+        <div className="overflow-hidden rounded-[1.75rem] bg-white shadow-[0_32px_80px_-28px_rgba(5,9,36,0.65)] ring-1 ring-white/10">
+          {/* Cabecera */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 px-6 pb-8 pt-8 text-center sm:px-8 sm:pt-9">
             <div
-              className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl"
-              style={{ background: `${BRAND.red}44` }}
+              className="pointer-events-none absolute inset-0 opacity-30"
+              aria-hidden
+              style={{
+                backgroundImage: 'radial-gradient(circle at 30% 0%, rgba(255,255,255,0.25), transparent 55%)',
+              }}
             />
-            <div className="relative flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[0.62rem] font-bold uppercase tracking-[0.28em] text-white/55">
-                  Activación RCV
-                </p>
-                <p className="mt-1 font-wordmark text-lg leading-none text-white">
-                  La Mundial <span className="italic text-fuchsia-400">de Seguros</span>
-                </p>
-              </div>
+            <div className="relative mx-auto mb-4 grid h-[72px] w-[72px] place-items-center rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/40">
               <img
                 src={publicAsset('logo-isotipo-transparente.png')}
-                alt=""
-                className="h-10 w-auto shrink-0 opacity-95"
+                alt="La Mundial de Seguros"
+                className="h-11 w-auto"
                 draggable={false}
               />
             </div>
-            <div className="relative mt-4 flex items-center gap-2 rounded-lg bg-white/8 px-3 py-2 ring-1 ring-white/12">
-              <CreditCard size={16} className="shrink-0 text-violet-300" aria-hidden />
-              <span className="truncate font-mono text-sm tracking-[0.18em] text-white/90">
-                •••• •••• ••••
-              </span>
-            </div>
+            <p className="relative font-wordmark text-xl text-white sm:text-[1.35rem]">
+              La Mundial{' '}
+              <span className="italic text-fuchsia-300">de Seguros</span>
+            </p>
+            <h1 className="relative mt-3 text-lg font-bold tracking-tight text-white/95 sm:text-xl">
+              Activación de tarjeta RCV
+            </h1>
+            <p className="relative mx-auto mt-2 max-w-[34ch] text-sm leading-relaxed text-indigo-100/80">
+              Ingresa el código de tu tarjeta para comenzar la suscripción digital.
+            </p>
+
+            {/* Pasos */}
+            <ol className="relative mt-6 flex items-center justify-center gap-1 sm:gap-2">
+              {STEPS.map((label, i) => {
+                const active = i === 0;
+                const done = false;
+                return (
+                  <li key={label} className="flex items-center gap-1 sm:gap-2">
+                    {i > 0 && (
+                      <span className="hidden h-px w-4 bg-white/20 sm:block sm:w-6" aria-hidden />
+                    )}
+                    <span
+                      className={[
+                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wide sm:px-3 sm:text-[0.65rem]',
+                        active
+                          ? 'bg-white text-indigo-900 shadow-sm'
+                          : done
+                            ? 'bg-white/20 text-white'
+                            : 'bg-white/10 text-white/55',
+                      ].join(' ')}
+                    >
+                      <span
+                        className={[
+                          'grid h-4 w-4 place-items-center rounded-full text-[0.58rem]',
+                          active ? 'bg-indigo-700 text-white' : 'bg-white/15 text-white/70',
+                        ].join(' ')}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="hidden min-[380px]:inline">{label}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
-        </div>
 
-        {/* Formulario */}
-        <form
-          onSubmit={handleSubmit}
-          className="overflow-hidden rounded-2xl bg-white/98 shadow-[0_28px_70px_-24px_rgba(5,9,36,0.75)] ring-1 ring-white/20 backdrop-blur-sm"
-          style={{ animation: 'splashTextIn 0.6s ease-out 0.16s both' }}
-        >
-          <div
-            className="h-1"
-            style={{
-              background: `linear-gradient(90deg, ${BRAND.navySoft} 0%, ${BRAND.blueMid} 52%, ${BRAND.red} 100%)`,
-            }}
-          />
-
-          <div className="px-6 py-7 sm:px-8 sm:py-8">
-            <div className="mb-6 text-center">
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.32em] text-indigo-500">
-                La Mundial de Seguros
-              </p>
-              <h1 className="mt-2 font-sans text-[1.55rem] font-extrabold tracking-tight text-indigo-900 sm:text-[1.7rem]">
-                Activación de tarjeta RCV
-              </h1>
-              <p className="mx-auto mt-2 max-w-[32ch] text-sm leading-relaxed text-slate-500">
-                Ingresa el código de tu tarjeta de activación para comenzar la suscripción.
-              </p>
-            </div>
-
-            <label htmlFor="codigo-tarjeta" className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
+          {/* Formulario */}
+          <form onSubmit={handleSubmit} className="px-6 py-7 sm:px-8 sm:py-8">
+            <label
+              htmlFor="codigo-tarjeta"
+              className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500"
+            >
+              <KeyRound size={14} className="text-indigo-500" aria-hidden />
               Código de tarjeta
             </label>
-            <div className="relative">
-              <CreditCard
-                size={18}
-                className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400"
-                aria-hidden
-              />
-              <input
-                id="codigo-tarjeta"
-                type="text"
-                inputMode="text"
-                autoCapitalize="off"
-                autoCorrect="off"
-                autoComplete="off"
-                spellCheck={false}
-                maxLength={80}
-                placeholder="Ej. hS2t6TJz"
-                value={codigo}
-                onChange={(e) => {
-                  setCodigo(e.target.value);
-                  if (error) setError('');
-                }}
-                disabled={loading}
-                className="min-h-[48px] w-full rounded-xl border border-slate-200 bg-slate-50/80 pl-11 pr-4 text-base text-slate-800 outline-none transition-colors placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/15 disabled:opacity-60 sm:text-sm"
-              />
-            </div>
+            <input
+              id="codigo-tarjeta"
+              type="text"
+              inputMode="text"
+              autoCapitalize="off"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={80}
+              placeholder="Ej. hS2t6TJz"
+              value={codigo}
+              onChange={(e) => {
+                setCodigo(e.target.value);
+                if (error) setError('');
+              }}
+              disabled={loading}
+              className="min-h-[52px] w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 text-center font-mono text-base tracking-[0.12em] text-slate-800 outline-none transition-all placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/12 disabled:opacity-60 sm:text-sm"
+            />
 
-            {error && (
+            {error ? (
               <p
                 role="alert"
-                className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-center text-xs font-medium text-rose-700 ring-1 ring-rose-100"
+                className="mt-3 rounded-xl bg-rose-50 px-3 py-2.5 text-center text-xs font-medium text-rose-700 ring-1 ring-rose-100"
               >
                 {error}
+              </p>
+            ) : (
+              <p className="mt-3 text-center text-xs leading-relaxed text-slate-400">
+                Lo encuentras en el reverso o impreso en tu tarjeta de activación.
               </p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-500 text-sm font-bold uppercase tracking-[0.12em] text-white shadow-[0_12px_28px_-10px_rgba(15,26,90,0.55)] transition-all hover:-translate-y-0.5 hover:shadow-[0_16px_34px_-10px_rgba(15,26,90,0.62)] active:translate-y-0 disabled:cursor-wait disabled:opacity-75 disabled:hover:translate-y-0"
+              className="mt-6 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 text-sm font-bold uppercase tracking-[0.1em] text-white shadow-[0_14px_32px_-12px_rgba(232,79,81,0.55)] transition-all hover:-translate-y-0.5 hover:from-fuchsia-600 hover:to-fuchsia-700 hover:shadow-[0_18px_36px_-12px_rgba(232,79,81,0.65)] active:translate-y-0 disabled:cursor-wait disabled:opacity-75 disabled:hover:translate-y-0"
             >
               {loading ? (
                 <>
@@ -225,26 +213,19 @@ export function ActivacionTarjetaEntry() {
                   Validando…
                 </>
               ) : (
-                'Validar tarjeta'
+                <>
+                  Validar tarjeta
+                  <ArrowRight size={18} aria-hidden />
+                </>
               )}
             </button>
 
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1.5 text-[0.66rem] font-bold text-indigo-800 ring-1 ring-indigo-100">
-                <ShieldCheck size={12} className="text-emerald-600" aria-hidden />
-                Conexión segura
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-fuchsia-50 px-3 py-1.5 text-[0.66rem] font-bold text-fuchsia-800 ring-1 ring-fuchsia-100">
-                <Sparkles size={12} className="text-fuchsia-500" aria-hidden />
-                RCV digital
-              </span>
-            </div>
-          </div>
-        </form>
-
-        <p className="mt-4 text-center text-[0.68rem] leading-relaxed text-white/45">
-          El código está en el reverso o sobreimpreso de tu tarjeta de activación.
-        </p>
+            <p className="mt-5 flex items-center justify-center gap-1.5 text-[0.68rem] font-medium text-slate-400">
+              <ShieldCheck size={13} className="text-emerald-500" aria-hidden />
+              Conexión cifrada · Proceso guiado paso a paso
+            </p>
+          </form>
+        </div>
       </div>
     </div>
   );
