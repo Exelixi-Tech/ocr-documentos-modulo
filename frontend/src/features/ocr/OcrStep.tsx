@@ -13,6 +13,7 @@ import {
   resolveTipoPlacaForTarjetaFlow,
   shouldUseTarjetaPublicApi,
 } from '../activacion-tarjeta/flow';
+import { persistTarjetaMetadataCanal } from '../activacion-tarjeta/metadata';
 import {
   resolveTarjetaPlanVehicleKind,
   validateCertificadoForTarjetaPlan,
@@ -433,7 +434,9 @@ function UploadDocCard({
         const prev = useWizardStore.getState().tarjeta!;
         useWizardStore.getState().setTarjeta({ ...prev, nfactura });
         const meta = useWizardStore.getState().metadataCanal || {};
-        useWizardStore.getState().setMetadataCanal({ ...meta, nfactura });
+        const metaWithFactura = { ...meta, nfactura };
+        useWizardStore.getState().setMetadataCanal(metaWithFactura);
+        persistTarjetaMetadataCanal(metaWithFactura);
         toast.success('Factura validada', `Número ${nfactura}`, 4000);
       }
 
