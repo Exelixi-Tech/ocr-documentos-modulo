@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ArrowRight, KeyRound, Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2, Phone } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
@@ -9,10 +9,18 @@ import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
 import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
-const STEPS = ['Código', 'Documentos', 'Póliza'] as const;
+/** Pasos impresos en el reverso de la tarjetica (manual pólizas rediseño). */
+const ACTIVATION_STEPS = [
+  'Escanea el código QR.',
+  'Ingresa el código de La Tarjetica. (Clic en validar).',
+  'Llena el formulario.',
+  'Obtendrás tu póliza de inmediato vía e-mail.',
+] as const;
+
+const ACTIVE_STEP = 1;
 
 /**
- * Pantalla de entrada del flujo RCV por tarjeta de activación.
+ * Pantalla de entrada — alineada al reverso de la tarjetica La Mundial.
  */
 export function ActivacionTarjetaEntry() {
   const setTarjeta = useWizardStore((s) => s.setTarjeta);
@@ -26,7 +34,7 @@ export function ActivacionTarjetaEntry() {
     e.preventDefault();
     const value = normalizeCodigoTarjeta(codigo);
     if (!value) {
-      setError('Ingresa el código de tarjeta.');
+      setError('Ingresa el código de La Tarjetica.');
       return;
     }
 
@@ -67,108 +75,107 @@ export function ActivacionTarjetaEntry() {
   return (
     <div
       role="dialog"
-      aria-label="Activación de tarjeta RCV"
-      className="fixed inset-0 z-[70] flex min-h-[100dvh] items-center justify-center overflow-hidden p-4 sm:p-6"
+      aria-label="Activación de póliza RCV"
+      className="fixed inset-0 z-[70] overflow-y-auto bg-[#eceff3]"
     >
-      {/* Fondo */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-indigo-900 to-slate-900" />
+      {/* Patrón ondas (frente tarjetica) */}
       <div
-        className="absolute inset-0 opacity-80"
+        className="pointer-events-none fixed inset-0 opacity-40"
         aria-hidden
         style={{
           backgroundImage: `
-            radial-gradient(circle at 12% 20%, rgba(74,141,213,0.35), transparent 42%),
-            radial-gradient(circle at 88% 12%, rgba(232,79,81,0.22), transparent 38%),
-            radial-gradient(circle at 50% 100%, rgba(22,42,127,0.5), transparent 55%)
+            radial-gradient(ellipse 80% 50% at 10% 20%, #fff 0%, transparent 55%),
+            radial-gradient(ellipse 70% 45% at 90% 80%, #fff 0%, transparent 50%),
+            radial-gradient(ellipse 60% 40% at 50% 50%, #d8dde6 0%, transparent 70%)
           `,
         }}
       />
-      <div
-        className="pointer-events-none absolute -left-24 top-1/4 h-72 w-72 rounded-full bg-violet-500/10 blur-3xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-16 bottom-1/4 h-64 w-64 rounded-full bg-fuchsia-500/10 blur-3xl"
-        aria-hidden
-      />
 
-      <div
-        className="relative w-full max-w-[460px]"
-        style={{ animation: 'splashTextIn 0.5s ease-out both' }}
-      >
-        <div className="overflow-hidden rounded-[1.75rem] bg-white shadow-[0_32px_80px_-28px_rgba(5,9,36,0.65)] ring-1 ring-white/10">
-          {/* Cabecera */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-indigo-800 to-indigo-950 px-6 pb-8 pt-8 text-center sm:px-8 sm:pt-9">
-            <div
-              className="pointer-events-none absolute inset-0 opacity-30"
-              aria-hidden
-              style={{
-                backgroundImage: 'radial-gradient(circle at 30% 0%, rgba(255,255,255,0.25), transparent 55%)',
-              }}
-            />
-            <div className="relative mx-auto mb-4 grid h-[72px] w-[72px] place-items-center rounded-2xl bg-white/95 shadow-lg ring-1 ring-white/40">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[520px] flex-col px-4 py-6 sm:py-8">
+        {/* Cabecera — reverso tarjetica */}
+        <header
+          className="relative overflow-hidden rounded-t-2xl bg-[#4f5668] px-5 pb-6 pt-7 text-white shadow-lg sm:px-7"
+          style={{ animation: 'splashTextIn 0.45s ease-out both' }}
+        >
+          <div
+            className="pointer-events-none absolute -left-8 top-0 h-full w-32 skew-x-[-12deg] bg-white/10"
+            aria-hidden
+          />
+          <h1 className="relative text-xl font-extrabold tracking-tight sm:text-2xl">
+            ¡Activa tu póliza!
+          </h1>
+          <ol className="relative mt-4 space-y-2.5">
+            {ACTIVATION_STEPS.map((text, i) => {
+              const active = i === ACTIVE_STEP;
+              return (
+                <li
+                  key={text}
+                  className={[
+                    'flex gap-3 text-[0.82rem] leading-snug sm:text-sm',
+                    active ? 'font-semibold text-white' : 'text-white/72',
+                  ].join(' ')}
+                >
+                  <span
+                    className={[
+                      'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold',
+                      active ? 'bg-white text-[#4f5668]' : 'bg-white/15 text-white/90',
+                    ].join(' ')}
+                  >
+                    {i + 1}
+                  </span>
+                  <span className={active ? 'underline decoration-white/40 underline-offset-2' : ''}>
+                    {text}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+        </header>
+
+        {/* Cuerpo — frente tarjetica + formulario */}
+        <div
+          className="-mt-1 flex flex-1 flex-col rounded-b-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
+          style={{ animation: 'splashTextIn 0.55s ease-out 0.08s both' }}
+        >
+          <div className="flex flex-col items-center px-5 pb-2 pt-8 sm:px-8 sm:pt-10">
+            {/* Mock tarjetica física */}
+            <div className="relative w-full max-w-[280px] rounded-2xl border-2 border-[#b8bec8] bg-white p-6 shadow-sm">
+              <span
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 -rotate-90 text-[0.55rem] font-bold tracking-widest text-slate-400"
+                aria-hidden
+              >
+                J-00084644-8
+              </span>
+              <span
+                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-[0.55rem] font-bold tracking-widest text-slate-400"
+                aria-hidden
+              >
+                www.lamundialdeseguros.com
+              </span>
               <img
                 src={publicAsset('logo-isotipo-transparente.png')}
                 alt="La Mundial de Seguros"
-                className="h-11 w-auto"
+                className="mx-auto h-20 w-auto"
                 draggable={false}
               />
+              <p className="mt-3 text-center font-wordmark text-base text-indigo-900">
+                LA MUNDIAL{' '}
+                <span className="italic text-fuchsia-600">de Seguros</span>
+              </p>
             </div>
-            <p className="relative font-wordmark text-xl text-white sm:text-[1.35rem]">
-              La Mundial{' '}
-              <span className="italic text-fuchsia-300">de Seguros</span>
-            </p>
-            <h1 className="relative mt-3 text-lg font-bold tracking-tight text-white/95 sm:text-xl">
-              Activación de tarjeta RCV
-            </h1>
-            <p className="relative mx-auto mt-2 max-w-[34ch] text-sm leading-relaxed text-indigo-100/80">
-              Ingresa el código de tu tarjeta para comenzar la suscripción digital.
-            </p>
 
-            {/* Pasos */}
-            <ol className="relative mt-6 flex items-center justify-center gap-1 sm:gap-2">
-              {STEPS.map((label, i) => {
-                const active = i === 0;
-                const done = false;
-                return (
-                  <li key={label} className="flex items-center gap-1 sm:gap-2">
-                    {i > 0 && (
-                      <span className="hidden h-px w-4 bg-white/20 sm:block sm:w-6" aria-hidden />
-                    )}
-                    <span
-                      className={[
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.62rem] font-bold uppercase tracking-wide sm:px-3 sm:text-[0.65rem]',
-                        active
-                          ? 'bg-white text-indigo-900 shadow-sm'
-                          : done
-                            ? 'bg-white/20 text-white'
-                            : 'bg-white/10 text-white/55',
-                      ].join(' ')}
-                    >
-                      <span
-                        className={[
-                          'grid h-4 w-4 place-items-center rounded-full text-[0.58rem]',
-                          active ? 'bg-indigo-700 text-white' : 'bg-white/15 text-white/70',
-                        ].join(' ')}
-                      >
-                        {i + 1}
-                      </span>
-                      <span className="hidden min-[380px]:inline">{label}</span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ol>
+            <p className="mt-6 text-center text-xs text-slate-500">
+              Para más información visítanos:{' '}
+              <span className="font-semibold text-indigo-700">www.lamundialdeseguros.com</span>
+            </p>
           </div>
 
-          {/* Formulario */}
-          <form onSubmit={handleSubmit} className="px-6 py-7 sm:px-8 sm:py-8">
+          <form onSubmit={handleSubmit} className="border-t border-slate-100 px-5 py-6 sm:px-8">
             <label
               htmlFor="codigo-tarjeta"
-              className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500"
+              className="mb-2 block text-center text-xs font-bold uppercase tracking-[0.2em] text-slate-500"
             >
-              <KeyRound size={14} className="text-indigo-500" aria-hidden />
-              Código de tarjeta
+              Código de La Tarjetica
             </label>
             <input
               id="codigo-tarjeta"
@@ -179,33 +186,29 @@ export function ActivacionTarjetaEntry() {
               autoComplete="off"
               spellCheck={false}
               maxLength={80}
-              placeholder="Ej. hS2t6TJz"
+              placeholder="Ingresa tu código"
               value={codigo}
               onChange={(e) => {
                 setCodigo(e.target.value);
                 if (error) setError('');
               }}
               disabled={loading}
-              className="min-h-[52px] w-full rounded-2xl border-2 border-slate-200 bg-slate-50 px-4 text-center font-mono text-base tracking-[0.12em] text-slate-800 outline-none transition-all placeholder:font-sans placeholder:tracking-normal placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-500/12 disabled:opacity-60 sm:text-sm"
+              className="min-h-[50px] w-full rounded-lg border-2 border-[#3B6FBF] bg-white px-4 text-center text-base text-slate-800 outline-none transition-shadow placeholder:text-slate-400 focus:ring-4 focus:ring-[#3B6FBF]/20 disabled:opacity-60 sm:text-sm"
             />
 
-            {error ? (
+            {error && (
               <p
                 role="alert"
-                className="mt-3 rounded-xl bg-rose-50 px-3 py-2.5 text-center text-xs font-medium text-rose-700 ring-1 ring-rose-100"
+                className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-center text-xs font-medium text-rose-700"
               >
                 {error}
-              </p>
-            ) : (
-              <p className="mt-3 text-center text-xs leading-relaxed text-slate-400">
-                Lo encuentras en el reverso o impreso en tu tarjeta de activación.
               </p>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-6 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-fuchsia-500 to-fuchsia-600 text-sm font-bold uppercase tracking-[0.1em] text-white shadow-[0_14px_32px_-12px_rgba(232,79,81,0.55)] transition-all hover:-translate-y-0.5 hover:from-fuchsia-600 hover:to-fuchsia-700 hover:shadow-[0_18px_36px_-12px_rgba(232,79,81,0.65)] active:translate-y-0 disabled:cursor-wait disabled:opacity-75 disabled:hover:translate-y-0"
+              className="mt-5 inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-lg bg-[#3B6FBF] text-sm font-bold uppercase tracking-[0.14em] text-white shadow-[0_8px_20px_-10px_rgba(59,111,191,0.9)] transition-colors hover:bg-[#2E5AA3] disabled:cursor-wait disabled:opacity-70"
             >
               {loading ? (
                 <>
@@ -213,18 +216,18 @@ export function ActivacionTarjetaEntry() {
                   Validando…
                 </>
               ) : (
-                <>
-                  Validar tarjeta
-                  <ArrowRight size={18} aria-hidden />
-                </>
+                'Validar'
               )}
             </button>
-
-            <p className="mt-5 flex items-center justify-center gap-1.5 text-[0.68rem] font-medium text-slate-400">
-              <ShieldCheck size={13} className="text-emerald-500" aria-hidden />
-              Conexión cifrada · Proceso guiado paso a paso
-            </p>
           </form>
+
+          {/* Footer tarjetica */}
+          <div className="mt-auto rounded-b-2xl bg-indigo-900 px-4 py-3 text-center text-white">
+            <p className="inline-flex items-center justify-center gap-2 text-sm font-bold tracking-wide">
+              <Phone size={16} aria-hidden />
+              CONTACTO DIRECTO: 0500 552 62 56
+            </p>
+          </div>
         </div>
       </div>
     </div>
