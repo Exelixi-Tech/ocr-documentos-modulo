@@ -20,7 +20,7 @@ const BRAND = {
 } as const;
 
 /**
- * Pantalla de entrada del flujo RCV por tarjeta (farmacia).
+ * Pantalla de entrada del flujo RCV por tarjeta de activación.
  */
 export function ActivacionTarjetaEntry() {
   const setTarjeta = useWizardStore((s) => s.setTarjeta);
@@ -165,14 +165,14 @@ export function ActivacionTarjetaEntry() {
 
           <div className="px-6 py-7 sm:px-8 sm:py-8">
             <div className="mb-6 text-center">
-              <p className="text-[0.68rem] font-black uppercase tracking-[0.32em] text-fuchsia-500">
-                Farmacia aliada
+              <p className="text-[0.68rem] font-black uppercase tracking-[0.32em] text-indigo-500">
+                La Mundial de Seguros
               </p>
               <h1 className="mt-2 font-sans text-[1.55rem] font-extrabold tracking-tight text-indigo-900 sm:text-[1.7rem]">
-                Activación de tarjeta
+                Activación de tarjeta RCV
               </h1>
-              <p className="mx-auto mt-2 max-w-[30ch] text-sm leading-relaxed text-slate-500">
-                Ingresa el código impreso en tu tarjeta para iniciar la suscripción RCV.
+              <p className="mx-auto mt-2 max-w-[32ch] text-sm leading-relaxed text-slate-500">
+                Ingresa el código de tu tarjeta de activación para comenzar la suscripción.
               </p>
             </div>
 
