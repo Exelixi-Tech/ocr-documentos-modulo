@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+﻿import { useState, type FormEvent } from 'react';
 import { Loader2, Phone } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { persistProductFromHints } from '../../lib/product';
@@ -11,7 +11,7 @@ import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './me
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
 /**
- * Pantalla de entrada del flujo RCV por tarjeta de activación.
+ * Pantalla de entrada del flujo RCV por tarjeta de activaci├│n.
  */
 export function ActivacionTarjetaEntry() {
   const setTarjeta = useWizardStore((s) => s.setTarjeta);
@@ -25,7 +25,7 @@ export function ActivacionTarjetaEntry() {
     e.preventDefault();
     const value = normalizeCodigoTarjeta(codigo);
     if (!value) {
-      setError('Ingresa el código de tarjeta.');
+      setError('Ingresa el c├│digo de tarjeta.');
       return;
     }
 
@@ -48,10 +48,10 @@ export function ActivacionTarjetaEntry() {
       }
       setTarjeta(tarjeta);
       toast.success(
-        'Tarjeta válida',
+        'Tarjeta v├ílida',
         tarjeta.bfactura === 1
           ? 'Ahora carga la factura fiscal y el resto de documentos.'
-          : 'Continúa con los documentos. El pago se hace al final.',
+          : 'Contin├║a con los documentos. El pago se hace al final.',
         5000,
       );
     } catch (err) {
@@ -59,7 +59,7 @@ export function ActivacionTarjetaEntry() {
       const yaActivada = err instanceof Error && err.name === TARJETA_YA_ACTIVADA_CODE;
       setError(message);
       toast.error(
-        yaActivada ? 'Tarjeta ya activada' : 'Tarjeta no válida',
+        yaActivada ? 'Tarjeta ya activada' : 'Tarjeta no v├ílida',
         message,
         6000,
       );
@@ -71,7 +71,7 @@ export function ActivacionTarjetaEntry() {
   return (
     <div
       role="dialog"
-      aria-label="Activación de tarjeta RCV"
+      aria-label="Activaci├│n de tarjeta RCV"
       className="fixed inset-0 z-[70] overflow-y-auto bg-[#eceff3]"
     >
       <div
@@ -86,9 +86,9 @@ export function ActivacionTarjetaEntry() {
         }}
       />
 
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1080px] items-center justify-center gap-4 px-4 py-8 lg:justify-between lg:gap-8 lg:px-8">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[480px] items-center px-4 py-8">
         <div
-          className="relative z-10 flex w-full max-w-[480px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
+          className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
           style={{ animation: 'splashTextIn 0.5s ease-out both' }}
         >
           <div className="flex flex-col items-center px-5 pb-2 pt-8 sm:px-8 sm:pt-10">
@@ -106,10 +106,10 @@ export function ActivacionTarjetaEntry() {
             </div>
 
             <h1 className="mt-6 text-center text-lg font-extrabold tracking-tight text-indigo-900 sm:text-xl">
-              Activación de tarjeta RCV
+              Activaci├│n de tarjeta RCV
             </h1>
             <p className="mt-2 text-center text-sm text-slate-500">
-              Ingresa el código de tu tarjeta para comenzar.
+              Ingresa el c├│digo de tu tarjeta para comenzar.
             </p>
           </div>
 
@@ -118,7 +118,7 @@ export function ActivacionTarjetaEntry() {
               htmlFor="codigo-tarjeta"
               className="mb-2 block text-center text-xs font-bold uppercase tracking-[0.2em] text-slate-500"
             >
-              Código de tarjeta
+              C├│digo de tarjeta
             </label>
             <input
               id="codigo-tarjeta"
@@ -129,7 +129,7 @@ export function ActivacionTarjetaEntry() {
               autoComplete="off"
               spellCheck={false}
               maxLength={80}
-              placeholder="Ingresa tu código"
+              placeholder="Ingresa tu c├│digo"
               value={codigo}
               onChange={(e) => {
                 setCodigo(e.target.value);
@@ -156,7 +156,7 @@ export function ActivacionTarjetaEntry() {
               {loading ? (
                 <>
                   <Loader2 size={18} className="animate-spin" aria-hidden />
-                  Validando…
+                  ValidandoÔÇª
                 </>
               ) : (
                 'Validar'
@@ -170,18 +170,6 @@ export function ActivacionTarjetaEntry() {
               CONTACTO DIRECTO: 0500 552 62 56
             </p>
           </div>
-        </div>
-
-        <div
-          className="pointer-events-none relative z-0 hidden min-h-[min(88vh,760px)] flex-1 items-end justify-end lg:flex"
-          aria-hidden
-        >
-          <img
-            src={publicAsset('branding/tarjeta-hero-codigo.png')}
-            alt=""
-            className="max-h-[min(88vh,760px)] w-full max-w-[520px] object-contain object-bottom"
-            draggable={false}
-          />
         </div>
       </div>
     </div>
