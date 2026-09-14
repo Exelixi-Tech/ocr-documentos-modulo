@@ -532,7 +532,7 @@ export function EmissionStep() {
           <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-800 leading-relaxed">
             <strong>¿Por qué aparece esta sección?</strong> La cédula/licencia escaneada
             ({tomador.tipoDoc}-{tomador.identificacion}) pertenece al tomador, pero el
-            certificado del vehículo está registrado a nombre de otra persona.
+            carnet de circulación o título de propiedad está registrado a nombre de otra persona.
             El tomador contrata la póliza, pero el titular del carnet figura como
             propietario del vehículo asegurado. Completa los datos faltantes.
           </div>

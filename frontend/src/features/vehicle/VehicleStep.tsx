@@ -862,11 +862,15 @@ export function VehicleStep() {
                 placeholder="Apellido"
               />
             </Field>
-            <Field label="Número de licencia de conducir *" error={errors.cond_licencia}>
+            <Field
+              label="Número de licencia de conducir *"
+              error={errors.cond_licencia}
+              hint="Ingreso manual. Formato nuevo: Nro. de Verificación (frontal). Antiguo: reverso del documento."
+            >
               <Input
                 value={conductor.licencia ?? ''}
                 onChange={(e) => setConductor({ licencia: e.target.value.toUpperCase() })}
-                placeholder="Ej. LIC-0234567"
+                placeholder="Ej. 190203935943"
                 className="uppercase font-mono tracking-wider"
               />
             </Field>

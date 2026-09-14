@@ -14,7 +14,7 @@ const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte'
 const DOC_TYPE_LABELS = {
   cedula: 'Cedula de Identidad',
   licencia: 'Licencia de Conducir',
-  certificado: 'Certificado de Circulacion',
+  certificado: 'Carnet de circulación o título de propiedad',
   rif: 'Registro Unico de Informacion Fiscal (RIF)',
   pasaporte: 'Pasaporte',
   factura: 'Factura fiscal',

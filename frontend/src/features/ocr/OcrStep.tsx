@@ -172,8 +172,8 @@ const DOCS: DocConfig[] = [
   },
   {
     type: 'certificado',
-    label: 'Certificado del vehículo',
-    description: 'Vehículo a asegurar',
+    label: 'Carnet de circulación y/o título de propiedad',
+    description: 'Documento vehicular INTT · carnet o título',
     Icon: FileText,
     accent: 'from-blue-500 to-indigo-500',
   },
@@ -970,7 +970,7 @@ export function OcrStep() {
             Aceptamos JPG, PNG, SVG o PDF.
             {product.id === 'rcv' && (
               <span className="block mt-2 text-indigo-700 font-semibold text-xs">
-                Documentos originales: cédula, licencia de conducir y certificado del vehículo
+                Documentos originales: cédula, licencia de conducir y carnet de circulación y/o título de propiedad
                 {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
               </span>
             )}
