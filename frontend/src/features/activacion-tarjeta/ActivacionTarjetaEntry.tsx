@@ -9,18 +9,8 @@ import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
 import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
-/** Pasos impresos en el reverso de la tarjetica (manual pólizas rediseño). */
-const ACTIVATION_STEPS = [
-  'Escanea el código QR.',
-  'Ingresa el código de La Tarjetica. (Clic en validar).',
-  'Llena el formulario.',
-  'Obtendrás tu póliza de inmediato vía e-mail.',
-] as const;
-
-const ACTIVE_STEP = 1;
-
 /**
- * Pantalla de entrada — alineada al reverso de la tarjetica La Mundial.
+ * Pantalla de entrada del flujo RCV por tarjeta de activación.
  */
 export function ActivacionTarjetaEntry() {
   const setTarjeta = useWizardStore((s) => s.setTarjeta);
@@ -34,7 +24,7 @@ export function ActivacionTarjetaEntry() {
     e.preventDefault();
     const value = normalizeCodigoTarjeta(codigo);
     if (!value) {
-      setError('Ingresa el código de La Tarjetica.');
+      setError('Ingresa el código de tarjeta.');
       return;
     }
 
@@ -75,10 +65,9 @@ export function ActivacionTarjetaEntry() {
   return (
     <div
       role="dialog"
-      aria-label="Activación de póliza RCV"
+      aria-label="Activación de tarjeta RCV"
       className="fixed inset-0 z-[70] overflow-y-auto bg-[#eceff3]"
     >
-      {/* Patrón ondas (frente tarjetica) */}
       <div
         className="pointer-events-none fixed inset-0 opacity-40"
         aria-hidden
@@ -91,54 +80,12 @@ export function ActivacionTarjetaEntry() {
         }}
       />
 
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[520px] flex-col px-4 py-6 sm:py-8">
-        {/* Cabecera — reverso tarjetica */}
-        <header
-          className="relative overflow-hidden rounded-t-2xl bg-[#4f5668] px-5 pb-6 pt-7 text-white shadow-lg sm:px-7"
-          style={{ animation: 'splashTextIn 0.45s ease-out both' }}
-        >
-          <div
-            className="pointer-events-none absolute -left-8 top-0 h-full w-32 skew-x-[-12deg] bg-white/10"
-            aria-hidden
-          />
-          <h1 className="relative text-xl font-extrabold tracking-tight sm:text-2xl">
-            ¡Activa tu póliza!
-          </h1>
-          <ol className="relative mt-4 space-y-2.5">
-            {ACTIVATION_STEPS.map((text, i) => {
-              const active = i === ACTIVE_STEP;
-              return (
-                <li
-                  key={text}
-                  className={[
-                    'flex gap-3 text-[0.82rem] leading-snug sm:text-sm',
-                    active ? 'font-semibold text-white' : 'text-white/72',
-                  ].join(' ')}
-                >
-                  <span
-                    className={[
-                      'mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold',
-                      active ? 'bg-white text-[#4f5668]' : 'bg-white/15 text-white/90',
-                    ].join(' ')}
-                  >
-                    {i + 1}
-                  </span>
-                  <span className={active ? 'underline decoration-white/40 underline-offset-2' : ''}>
-                    {text}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </header>
-
-        {/* Cuerpo — frente tarjetica + formulario */}
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[480px] items-center px-4 py-8">
         <div
-          className="-mt-1 flex flex-1 flex-col rounded-b-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
-          style={{ animation: 'splashTextIn 0.55s ease-out 0.08s both' }}
+          className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
+          style={{ animation: 'splashTextIn 0.5s ease-out both' }}
         >
           <div className="flex flex-col items-center px-5 pb-2 pt-8 sm:px-8 sm:pt-10">
-            {/* Mock tarjetica física */}
             <div className="w-full max-w-[280px] rounded-2xl border-2 border-[#b8bec8] bg-white px-6 py-7 shadow-sm">
               <img
                 src={publicAsset('logo-isotipo-transparente.png')}
@@ -152,9 +99,11 @@ export function ActivacionTarjetaEntry() {
               </p>
             </div>
 
-            <p className="mt-6 text-center text-xs text-slate-500">
-              Para más información visítanos:{' '}
-              <span className="font-semibold text-indigo-700">www.lamundialdeseguros.com</span>
+            <h1 className="mt-6 text-center text-lg font-extrabold tracking-tight text-indigo-900 sm:text-xl">
+              Activación de tarjeta RCV
+            </h1>
+            <p className="mt-2 text-center text-sm text-slate-500">
+              Ingresa el código de tu tarjeta para comenzar.
             </p>
           </div>
 
@@ -163,7 +112,7 @@ export function ActivacionTarjetaEntry() {
               htmlFor="codigo-tarjeta"
               className="mb-2 block text-center text-xs font-bold uppercase tracking-[0.2em] text-slate-500"
             >
-              Código de La Tarjetica
+              Código de tarjeta
             </label>
             <input
               id="codigo-tarjeta"
@@ -209,8 +158,7 @@ export function ActivacionTarjetaEntry() {
             </button>
           </form>
 
-          {/* Footer tarjetica */}
-          <div className="mt-auto rounded-b-2xl bg-indigo-900 px-4 py-3 text-center text-white">
+          <div className="bg-indigo-900 px-4 py-3 text-center text-white">
             <p className="inline-flex items-center justify-center gap-2 text-sm font-bold tracking-wide">
               <Phone size={16} aria-hidden />
               CONTACTO DIRECTO: 0500 552 62 56
