@@ -7,6 +7,10 @@
  */
 const express = require('express');
 const axios = require('axios');
+const {
+  isTarjetaAlreadyActivated,
+  tarjetaYaActivadaMessage,
+} = require('../lib/tarjetaEstado');
 
 const router = express.Router();
 
@@ -80,10 +84,21 @@ router.post('/validate-card', async (req, res) => {
         data: data.data || null,
       });
     }
+
+    const cardPayload = data.data && typeof data.data === 'object' ? data.data : data;
+    if (isTarjetaAlreadyActivated(cardPayload, lmMessage(data, ''))) {
+      return res.status(422).json({
+        success: false,
+        code: 'TARJETA_YA_ACTIVADA',
+        message: tarjetaYaActivadaMessage(),
+        data: cardPayload,
+      });
+    }
+
     return res.status(200).json({
       success: true,
       message: lmMessage(data, 'Tarjeta válida para activación'),
-      data: data.data || data,
+      data: cardPayload,
     });
   } catch (err) {
     console.error('[activacion-tarjeta] validate-card:', err.message);

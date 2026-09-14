@@ -2,6 +2,7 @@ import axios, { AxiosError } from 'axios';
 import { moduleApiBase } from '../../lib/app-base';
 import { attachNexusTokenAxios } from '../../lib/nexus-token-client';
 import { normalizeCodigoTarjeta, normalizeNfactura } from './flow';
+import { assertTarjetaDisponible, TARJETA_YA_ACTIVADA_CODE } from './tarjeta-estado';
 import type { TarjetaActivacion, ValidateBillResponse, ValidateCardResponse } from './types';
 
 const api = axios.create({ baseURL: moduleApiBase() });
@@ -49,8 +50,15 @@ export async function validateCard(codigoTarjeta: string): Promise<TarjetaActiva
     const payload = (data?.data && typeof data.data === 'object') ? data.data : {};
     const resultado = Number(payload.resultado ?? (data.success ? 1 : 0));
     if (!data?.success || resultado !== 1) {
-      throw new Error(data?.message || String(payload.mensaje || 'Tarjeta no válida para activación.'));
+      const fail = new Error(
+        data?.message || String(payload.mensaje || 'Tarjeta no válida para activación.'),
+      );
+      if ((data as { code?: string })?.code === TARJETA_YA_ACTIVADA_CODE) {
+        fail.name = TARJETA_YA_ACTIVADA_CODE;
+      }
+      throw fail;
     }
+    assertTarjetaDisponible(payload, data?.message);
     return mapTarjeta(codigo, payload);
   } catch (err) {
     if (err instanceof Error && err.name !== 'AxiosError') throw err;

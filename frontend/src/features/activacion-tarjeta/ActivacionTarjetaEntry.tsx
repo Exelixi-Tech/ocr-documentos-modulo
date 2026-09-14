@@ -5,6 +5,7 @@ import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
 import { toast } from '../../store/toastStore';
 import { validateCard } from './api';
+import { TARJETA_YA_ACTIVADA_CODE } from './tarjeta-estado';
 import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
 import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
@@ -55,8 +56,13 @@ export function ActivacionTarjetaEntry() {
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'No se pudo validar la tarjeta.';
+      const yaActivada = err instanceof Error && err.name === TARJETA_YA_ACTIVADA_CODE;
       setError(message);
-      toast.error('Tarjeta no válida', message, 6000);
+      toast.error(
+        yaActivada ? 'Tarjeta ya activada' : 'Tarjeta no válida',
+        message,
+        6000,
+      );
     } finally {
       setLoading(false);
     }
