@@ -139,19 +139,7 @@ export function ActivacionTarjetaEntry() {
         >
           <div className="flex flex-col items-center px-5 pb-2 pt-8 sm:px-8 sm:pt-10">
             {/* Mock tarjetica física */}
-            <div className="relative w-full max-w-[280px] rounded-2xl border-2 border-[#b8bec8] bg-white p-6 shadow-sm">
-              <span
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 -rotate-90 text-[0.55rem] font-bold tracking-widest text-slate-400"
-                aria-hidden
-              >
-                J-00084644-8
-              </span>
-              <span
-                className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-[0.55rem] font-bold tracking-widest text-slate-400"
-                aria-hidden
-              >
-                www.lamundialdeseguros.com
-              </span>
+            <div className="w-full max-w-[280px] rounded-2xl border-2 border-[#b8bec8] bg-white px-6 py-7 shadow-sm">
               <img
                 src={publicAsset('logo-isotipo-transparente.png')}
                 alt="La Mundial de Seguros"
