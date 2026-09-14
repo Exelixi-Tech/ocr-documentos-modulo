@@ -72,14 +72,8 @@ export function ActivacionTarjetaEntry() {
     <div
       role="dialog"
       aria-label="Activación de tarjeta RCV"
-      className="fixed inset-0 z-[70] overflow-y-auto"
+      className="fixed inset-0 z-[70] overflow-y-auto bg-[#eceff3]"
     >
-      <div
-        className="pointer-events-none fixed inset-0 bg-cover bg-center"
-        aria-hidden
-        style={{ backgroundImage: `url(${publicAsset('branding/tarjeta-fondo-codigo.png')})` }}
-      />
-      <div className="pointer-events-none fixed inset-0 bg-[#eceff3]/88" aria-hidden />
       <div
         className="pointer-events-none fixed inset-0 opacity-40"
         aria-hidden
@@ -92,9 +86,9 @@ export function ActivacionTarjetaEntry() {
         }}
       />
 
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[480px] items-center px-4 py-8">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[1080px] items-center justify-center gap-4 px-4 py-8 lg:justify-between lg:gap-8 lg:px-8">
         <div
-          className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
+          className="relative z-10 flex w-full max-w-[480px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
           style={{ animation: 'splashTextIn 0.5s ease-out both' }}
         >
           <div className="flex flex-col items-center px-5 pb-2 pt-8 sm:px-8 sm:pt-10">
@@ -176,6 +170,18 @@ export function ActivacionTarjetaEntry() {
               CONTACTO DIRECTO: 0500 552 62 56
             </p>
           </div>
+        </div>
+
+        <div
+          className="pointer-events-none relative z-0 hidden min-h-[min(88vh,760px)] flex-1 items-end justify-end lg:flex"
+          aria-hidden
+        >
+          <img
+            src={publicAsset('branding/tarjeta-hero-codigo.png')}
+            alt=""
+            className="max-h-[min(88vh,760px)] w-full max-w-[520px] object-contain object-bottom"
+            draggable={false}
+          />
         </div>
       </div>
     </div>
