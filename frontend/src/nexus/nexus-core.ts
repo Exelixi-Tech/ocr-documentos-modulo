@@ -33,6 +33,15 @@ function resolveProductionGciaNexusApi(): string | null {
   return null;
 }
 
+/** QA: un solo host. Apache sirve /nexus-api; /ocr/nexus-api no existe. */
+function resolveQaNexusApi(): string | null {
+  if (typeof window === 'undefined') return null;
+  if (window.location.hostname === 'nexusqa.exelixitech.com') {
+    return `${window.location.origin}/nexus-api`;
+  }
+  return null;
+}
+
 function resolveModuleNexusApiOnHttps(): string | null {
   if (typeof window === 'undefined' || window.location.protocol !== 'https:') {
     return null;
@@ -82,6 +91,9 @@ function resolveSameOriginNexusApi(
 export function resolveNexusApiUrl(configured?: string): string {
   const productionGcia = resolveProductionGciaNexusApi();
   if (productionGcia) return productionGcia;
+
+  const qaNexus = resolveQaNexusApi();
+  if (qaNexus) return qaNexus;
 
   const moduleOnHttps = resolveModuleNexusApiOnHttps();
   if (moduleOnHttps && useModuleProxyBuild()) {
