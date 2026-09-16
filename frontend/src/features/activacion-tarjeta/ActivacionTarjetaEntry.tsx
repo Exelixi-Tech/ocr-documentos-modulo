@@ -220,7 +220,7 @@ export function ActivacionTarjetaEntry() {
             </p>
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800">
               <ShieldCheck size={14} aria-hidden className="text-[#2E6DBF]" />
-              RCV · Activación en farmacia
+              Protección vehicular RCV
             </div>
           </div>
 
