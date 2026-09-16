@@ -1,5 +1,5 @@
 ﻿import { useState, type FormEvent } from 'react';
-import { Loader2, Phone } from 'lucide-react';
+import { Loader2, Phone, ShieldCheck } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
@@ -10,8 +10,20 @@ import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
 import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
+const BRAND = {
+  navyDeep: '#091133',
+  navy: '#0F1A5A',
+  navySoft: '#162A7F',
+  blueMid: '#2E6DBF',
+  blueLight: '#4A8DD5',
+  red: '#E84F51',
+  silver: '#ACACAC',
+  btnFrom: '#6B7FA8',
+  btnTo: '#4A5F7A',
+} as const;
+
 /**
- * Pantalla de entrada del flujo RCV por tarjeta de activación.
+ * Entrada flujo RCV tarjeta farmacia — layout full-viewport (referencia mockup La Mundial).
  */
 export function ActivacionTarjetaEntry() {
   const setTarjeta = useWizardStore((s) => s.setTarjeta);
@@ -72,52 +84,61 @@ export function ActivacionTarjetaEntry() {
     <div
       role="dialog"
       aria-label="Activación de tarjeta RCV"
-      className="fixed inset-0 z-[70] overflow-y-auto bg-[#eceff3]"
+      className="fixed inset-0 z-[70] min-h-[100dvh] overflow-x-hidden overflow-y-auto"
+      style={{ background: BRAND.navyDeep }}
     >
+      {/* Fondo marca — pantalla completa */}
       <div
-        className="pointer-events-none fixed inset-0 opacity-40"
+        className="pointer-events-none fixed inset-0"
         aria-hidden
         style={{
-          backgroundImage: `
-            radial-gradient(ellipse 80% 50% at 10% 20%, #fff 0%, transparent 55%),
-            radial-gradient(ellipse 70% 45% at 90% 80%, #fff 0%, transparent 50%),
-            radial-gradient(ellipse 60% 40% at 50% 50%, #d8dde6 0%, transparent 70%)
+          background: `
+            radial-gradient(ellipse 70% 55% at 15% 10%, ${BRAND.blueLight}22, transparent 55%),
+            radial-gradient(ellipse 60% 50% at 88% 85%, ${BRAND.red}18, transparent 50%),
+            linear-gradient(165deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 55%, ${BRAND.navySoft} 100%)
           `,
         }}
       />
 
-      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-[480px] items-center px-4 py-8">
+      <div className="relative mx-auto flex min-h-[100dvh] w-full max-w-lg flex-col items-center justify-center px-4 py-10 sm:max-w-xl sm:px-6">
         <div
-          className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_20px_50px_-24px_rgba(15,26,90,0.35)] ring-1 ring-slate-200/80"
-          style={{ animation: 'splashTextIn 0.5s ease-out both' }}
+          className="w-full overflow-hidden rounded-2xl bg-white shadow-[0_28px_64px_-28px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
+          style={{ animation: 'splashTextIn 0.55s ease-out both' }}
         >
-          <div className="flex flex-col items-center px-5 pb-2 pt-8 sm:px-8 sm:pt-10">
-            <div className="w-full max-w-[280px] rounded-2xl border-2 border-[#b8bec8] bg-white px-6 py-7 shadow-sm">
-              <img
-                src={publicAsset('logo-isotipo-transparente.png')}
-                alt="La Mundial de Seguros"
-                className="mx-auto h-20 w-auto"
-                draggable={false}
-              />
-              <p className="mt-3 text-center font-wordmark text-base text-indigo-900">
-                LA MUNDIAL{' '}
-                <span className="italic text-fuchsia-600">de Seguros</span>
-              </p>
-            </div>
-
-            <h1 className="mt-6 text-center text-lg font-extrabold tracking-tight text-indigo-900 sm:text-xl">
-              Activación de tarjeta RCV
+          {/* Cabecera — título como mockup */}
+          <div className="border-b border-slate-100 px-6 pb-5 pt-8 text-center sm:px-10 sm:pt-10">
+            <h1 className="font-sans text-xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-2xl">
+              Activación de tarjeta
             </h1>
-            <p className="mt-2 text-center text-sm text-slate-500">
-              Ingresa el código de tu tarjeta para comenzar.
+            <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              Ingresa el código impreso en tu tarjeta RCV de farmacia.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="border-t border-slate-100 px-5 py-6 sm:px-8">
-            <label
-              htmlFor="codigo-tarjeta"
-              className="mb-2 block text-center text-xs font-bold uppercase tracking-[0.2em] text-slate-500"
-            >
+          {/* Logo La Mundial */}
+          <div className="flex flex-col items-center px-6 py-8 sm:px-10 sm:py-10">
+            <img
+              src={publicAsset('logo-isotipo-transparente.png')}
+              alt="La Mundial de Seguros"
+              className="h-24 w-auto sm:h-28"
+              draggable={false}
+            />
+            <p className="mt-4 text-center font-wordmark text-lg text-[#0F1A5A] sm:text-xl">
+              LA MUNDIAL{' '}
+              <span className="italic text-[#E84F51]">de Seguros</span>
+            </p>
+            <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800">
+              <ShieldCheck size={14} aria-hidden className="text-[#2E6DBF]" />
+              RCV · Activación en farmacia
+            </div>
+          </div>
+
+          {/* Formulario */}
+          <form
+            onSubmit={handleSubmit}
+            className="border-t border-slate-100 bg-slate-50/60 px-6 py-7 sm:px-10 sm:py-8"
+          >
+            <label htmlFor="codigo-tarjeta" className="sr-only">
               Código de tarjeta
             </label>
             <input
@@ -129,20 +150,20 @@ export function ActivacionTarjetaEntry() {
               autoComplete="off"
               spellCheck={false}
               maxLength={80}
-              placeholder="Ingresa tu código"
+              placeholder="Código de tarjeta"
               value={codigo}
               onChange={(e) => {
                 setCodigo(e.target.value);
                 if (error) setError('');
               }}
               disabled={loading}
-              className="min-h-[50px] w-full rounded-lg border-2 border-[#3B6FBF] bg-white px-4 text-center text-base text-slate-800 outline-none transition-shadow placeholder:text-slate-400 focus:ring-4 focus:ring-[#3B6FBF]/20 disabled:opacity-60 sm:text-sm"
+              className="min-h-[52px] w-full rounded-xl border border-slate-300 bg-white px-4 text-center text-base text-slate-800 shadow-sm outline-none transition-[box-shadow,border-color] placeholder:text-slate-400 focus:border-[#2E6DBF] focus:ring-4 focus:ring-[#2E6DBF]/15 disabled:opacity-60"
             />
 
             {error && (
               <p
                 role="alert"
-                className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-center text-xs font-medium text-rose-700"
+                className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-center text-sm font-medium text-rose-700"
               >
                 {error}
               </p>
@@ -151,7 +172,10 @@ export function ActivacionTarjetaEntry() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-5 inline-flex min-h-[50px] w-full items-center justify-center gap-2 rounded-lg bg-[#3B6FBF] text-sm font-bold uppercase tracking-[0.14em] text-white shadow-[0_8px_20px_-10px_rgba(59,111,191,0.9)] transition-colors hover:bg-[#2E5AA3] disabled:cursor-wait disabled:opacity-70"
+              className="mt-5 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl text-sm font-bold uppercase tracking-[0.12em] text-white shadow-[0_10px_24px_-12px_rgba(74,95,122,0.85)] transition-[filter,transform] hover:brightness-105 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
+              style={{
+                background: `linear-gradient(180deg, ${BRAND.btnFrom} 0%, ${BRAND.btnTo} 100%)`,
+              }}
             >
               {loading ? (
                 <>
@@ -164,13 +188,21 @@ export function ActivacionTarjetaEntry() {
             </button>
           </form>
 
-          <div className="bg-indigo-900 px-4 py-3 text-center text-white">
-            <p className="inline-flex items-center justify-center gap-2 text-sm font-bold tracking-wide">
-              <Phone size={16} aria-hidden />
-              CONTACTO DIRECTO: 0500 552 62 56
+          {/* Contacto */}
+          <div
+            className="px-4 py-3.5 text-center text-white sm:px-6"
+            style={{ background: `linear-gradient(90deg, ${BRAND.navy} 0%, ${BRAND.navySoft} 100%)` }}
+          >
+            <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
+              <Phone size={16} aria-hidden className="shrink-0" />
+              <span>Contacto directo: 0500 552 62 56</span>
             </p>
           </div>
         </div>
+
+        <p className="mt-6 max-w-sm text-center text-xs leading-relaxed text-white/55">
+          Protección vehicular RCV · La Mundial de Seguros
+        </p>
       </div>
     </div>
   );
