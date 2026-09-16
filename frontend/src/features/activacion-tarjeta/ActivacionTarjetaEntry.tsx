@@ -21,14 +21,14 @@ const BRAND = {
   btnTo: '#4A5F7A',
 } as const;
 
-const HERO_IMAGE = publicAsset('tarjeta/hero-activacion.jpg');
-const HERO_IMAGE_2X = publicAsset('tarjeta/hero-activacion@2x.jpg');
+const WOMAN_CUTOUT = publicAsset('tarjeta/mujer-tarjeta.png');
 const LOGO_LA_MUNDIAL = publicAsset('logo-lamundial.png');
 
-const HERO_SRCSET_JPG = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X} 2048w`;
-
 const FOOTER_GRADIENT = `linear-gradient(90deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 45%, ${BRAND.navySoft} 100%)`;
-const PAGE_BG = `linear-gradient(135deg, ${BRAND.navySoft} 0%, #1E3E9E 45%, ${BRAND.navy} 100%)`;
+const PAGE_BG = [
+  'radial-gradient(1100px 620px at 14% 6%, rgba(74,141,213,0.38) 0%, transparent 62%)',
+  'linear-gradient(135deg, #2C55BA 0%, #1B3E9E 48%, #102D6F 100%)',
+].join(', ');
 
 function TarjetaContactFooter({ className = '' }: { className?: string }) {
   return (
@@ -44,23 +44,37 @@ function TarjetaContactFooter({ className = '' }: { className?: string }) {
   );
 }
 
-/** Fondo — foto kit editada (mujer + azul limpio, sin textos del banner). */
+/**
+ * Fondo — curva blanca vectorial (SVG, no pixela) + mujer recortada del kit.
+ * La foto se muestra a su tamaño nativo o menor para que no se vea pixelada.
+ */
 function TarjetaBackdrop() {
   const [ready, setReady] = useState(false);
 
   return (
-    <img
-      src={HERO_IMAGE}
-      srcSet={HERO_SRCSET_JPG}
-      sizes="100vw"
-      alt=""
+    <div
+      className="pointer-events-none absolute inset-0 hidden overflow-hidden lg:block"
       aria-hidden
-      className={`pointer-events-none absolute inset-0 hidden h-full w-full object-cover object-left transition-opacity duration-500 lg:block ${ready ? 'opacity-100' : 'opacity-0'}`}
-      draggable={false}
-      decoding="async"
-      fetchPriority="high"
-      onLoad={() => setReady(true)}
-    />
+    >
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+      >
+        <path d="M0 0 H27 C43 26 43 64 32 100 H0 Z" fill="#ffffff" />
+      </svg>
+
+      <img
+        src={WOMAN_CUTOUT}
+        alt=""
+        className={`absolute bottom-0 left-[2vw] w-auto transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
+        style={{ height: 'min(88vh, 33vw, 560px)' }}
+        draggable={false}
+        decoding="async"
+        fetchPriority="high"
+        onLoad={() => setReady(true)}
+      />
+    </div>
   );
 }
 
@@ -225,34 +239,34 @@ export function ActivacionTarjetaEntry() {
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
         {/* Login opaco — nunca transparente sobre la foto */}
-        <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_30px_70px_-25px_rgba(5,9,36,0.65)] ring-1 ring-white/60 sm:p-8">
+        <div className="w-full max-w-[27rem] rounded-[28px] bg-white p-6 shadow-[0_36px_80px_-28px_rgba(5,9,36,0.7)] sm:p-9">
           <div className="text-center">
             <img
               src={LOGO_LA_MUNDIAL}
               alt="La Mundial de Seguros"
-              className="mx-auto h-11 w-auto object-contain sm:h-12"
+              className="mx-auto h-12 w-auto object-contain sm:h-14"
               draggable={false}
             />
-            <h1 className="mt-5 font-sans text-xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-2xl">
+            <h1 className="mt-6 font-sans text-[1.4rem] font-extrabold leading-tight tracking-tight text-[#0F1A5A] sm:text-[1.6rem]">
               Activación de tarjeta
             </h1>
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">
+            <p className="mx-auto mt-2 max-w-[19rem] text-sm leading-relaxed text-slate-500">
               Ingresa el código impreso en el reverso de tu tarjeta RCV.
             </p>
-            <div className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[#2E6DBF]">
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#2E6DBF]/10 px-3.5 py-1.5 text-xs font-bold text-[#1B3E9E]">
               <ShieldCheck size={14} aria-hidden />
               Protección vehicular RCV
             </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-center gap-4 rounded-2xl bg-[#f5f8fc] px-4 py-4 sm:px-5">
+          <div className="mt-7 flex items-center gap-4 rounded-2xl border border-slate-100 bg-[#f6f9fd] px-4 py-4 sm:px-5">
             <TarjetaCodigoHint />
             <p className="text-left text-sm leading-relaxed text-slate-600">
               El código está en el <strong className="text-[#0F1A5A]">reverso</strong>, junto al QR.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-6 flex flex-col">
+          <form onSubmit={handleSubmit} className="mt-7 flex flex-col">
             <label htmlFor="codigo-tarjeta" className="sr-only">
               Código de tarjeta
             </label>
@@ -272,7 +286,7 @@ export function ActivacionTarjetaEntry() {
                 if (error) setError('');
               }}
               disabled={loading}
-              className="min-h-[52px] w-full rounded-xl border border-slate-300 bg-white px-4 text-center text-base text-slate-800 shadow-sm outline-none transition-[box-shadow,border-color] placeholder:text-slate-400 focus:border-[#2E6DBF] focus:ring-4 focus:ring-[#2E6DBF]/15 disabled:opacity-60"
+              className="min-h-[54px] w-full rounded-xl border border-slate-300 bg-white px-4 text-center text-base font-semibold tracking-wide text-slate-800 shadow-sm outline-none transition-[box-shadow,border-color] placeholder:font-normal placeholder:tracking-normal placeholder:text-slate-400 focus:border-[#2E6DBF] focus:ring-4 focus:ring-[#2E6DBF]/15 disabled:opacity-60"
             />
 
             {error && (
@@ -287,9 +301,9 @@ export function ActivacionTarjetaEntry() {
             <button
               type="submit"
               disabled={loading}
-              className="mt-5 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl text-sm font-bold uppercase tracking-[0.12em] text-white shadow-[0_10px_24px_-12px_rgba(74,95,122,0.85)] transition-[filter,transform] hover:brightness-105 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
+              className="mt-4 inline-flex min-h-[54px] w-full items-center justify-center gap-2 rounded-xl text-sm font-bold uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_-12px_rgba(27,62,158,0.75)] transition-[filter,transform] hover:brightness-110 active:scale-[0.99] disabled:cursor-wait disabled:opacity-70"
               style={{
-                background: `linear-gradient(180deg, ${BRAND.btnFrom} 0%, ${BRAND.btnTo} 100%)`,
+                background: `linear-gradient(180deg, ${BRAND.blueMid} 0%, #1B3E9E 100%)`,
               }}
             >
               {loading ? (

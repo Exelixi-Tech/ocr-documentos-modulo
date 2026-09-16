@@ -4,13 +4,13 @@ Copiar aquí las imágenes de marca (kit Tarjética La Mundial):
 
 | Archivo en repo | Origen (kit) |
 |-----------------|--------------|
-| `hero-activacion.jpg` | **Fondo en uso** · mujer con móvil y tarjeta + panel azul limpio (1024×576) |
-| `hero-activacion@2x.jpg` | Misma imagen @2x para pantallas retina |
+| `mujer-tarjeta.png` | **En uso** · mujer con móvil y tarjeta, recortada con alfa (386×520) |
 | `hero-mano-tarjeta.jpg` | (alternativa) Mano con tarjeta · fondo azul |
 | `tarjeta-frente-reverso.jpg` | Tarjeta frente/reverso con QR |
 
-`hero-activacion.jpg` se editó desde el banner del kit: el texto "ACTIVACIÓN DE LA TARJETICA",
-el icono de soporte y los 6 pasos se repintaron con el degradado azul de marca, porque esos
-textos se veían detrás del formulario. El copy va en HTML, no en la imagen.
+`mujer-tarjeta.png` sale del banner del kit: se eliminó el fondo azul (alfa) y se descartaron el
+texto "ACTIVACIÓN DE LA TARJETICA", el icono de soporte y los 6 pasos. El fondo azul y la curva
+blanca se dibujan en CSS/SVG, no en la imagen: así el fondo no pixela y la foto se muestra a su
+tamaño nativo (máx. 560 px de alto). El copy va en HTML.
 
 Origen: PDF Tarjética La Mundial (`Tarjetica_varios_pages-to-jpg-*.jpg`).
