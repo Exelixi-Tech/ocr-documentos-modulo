@@ -69,7 +69,7 @@ function TarjetaHeroPanel() {
             sizes={HERO_SIZES}
             alt=""
             aria-hidden
-            className="h-full w-full object-cover object-[50%_62%] sm:object-[50%_58%] lg:object-[50%_52%]"
+            className="h-full w-full object-cover object-[50%_78%] sm:object-[50%_68%] lg:object-[50%_52%]"
             draggable={false}
             decoding="async"
             fetchPriority="high"
@@ -250,12 +250,12 @@ export function ActivacionTarjetaEntry() {
       >
         {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
         <div
-          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-0"
+          className="relative min-h-[46vh] overflow-hidden sm:min-h-[48vh] lg:min-h-0"
           style={{ backgroundColor: BRAND.navyDeep }}
         >
           <TarjetaHeroPanel />
 
-          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col justify-between p-6 sm:p-8 lg:p-10">
+          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col p-6 sm:p-8 lg:justify-between lg:p-10">
             <div className="max-w-xs rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.35)] backdrop-blur-md">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/85">
                 Tarjética RCV
@@ -265,7 +265,7 @@ export function ActivacionTarjetaEntry() {
               </p>
             </div>
 
-            <p className="max-w-sm rounded-xl border border-white/35 bg-white/88 px-3.5 py-2.5 text-sm leading-relaxed text-[#0F1A5A] shadow-[0_8px_24px_-10px_rgba(9,17,51,0.28)] backdrop-blur-sm sm:text-[0.9375rem]">
+            <p className="mt-auto hidden max-w-sm rounded-xl border border-white/35 bg-white/88 px-3.5 py-2.5 text-sm leading-relaxed text-[#0F1A5A] shadow-[0_8px_24px_-10px_rgba(9,17,51,0.28)] backdrop-blur-sm sm:text-[0.9375rem] lg:block">
               Activa tu protección vehicular con el código del reverso de tu tarjeta.
             </p>
           </div>
