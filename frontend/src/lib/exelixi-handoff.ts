@@ -193,7 +193,7 @@ export function getFormularioContinueUrl(): string {
   } catch {
     try {
       const stored = sessionStorage.getItem('exelixi_product');
-      params.set('product', stored === 'funerario' ? 'funerario' : 'rcv');
+      params.set('product', stored === 'funerario' || stored === 'patrimoniales' ? stored : 'rcv');
     } catch {
       params.set('product', 'rcv');
     }
