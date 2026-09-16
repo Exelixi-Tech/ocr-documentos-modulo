@@ -110,7 +110,7 @@ export default function App() {
     applyMetadataFromNexusToken('nexus_access_token_ocr', (metadata) => {
       const current = useWizardStore.getState().metadataCanal || {};
       setMetadataCanal(mergeMarketplaceActorMetadata({ ...current, ...metadata }));
-      if (metadata.product === 'funerario' || metadata.product === 'rcv') {
+      if (metadata.product) {
         persistProductFromHints({ product: String(metadata.product) });
       }
     });
