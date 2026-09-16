@@ -21,17 +21,14 @@ const BRAND = {
   btnTo: '#4A5F7A',
 } as const;
 
-const HERO_IMAGE = publicAsset('tarjeta/hero-mano-tarjeta.jpg');
-const HERO_IMAGE_2X = publicAsset('tarjeta/hero-mano-tarjeta@2x.jpg');
-const HERO_IMAGE_2X_WEBP = publicAsset('tarjeta/hero-mano-tarjeta@2x.webp');
+const HERO_IMAGE = publicAsset('tarjeta/hero-mujer-movil.jpg');
+const HERO_IMAGE_2X = publicAsset('tarjeta/hero-mujer-movil@2x.jpg');
 const LOGO_LA_MUNDIAL = publicAsset('logo-lamundial.png');
 
-const HERO_SRCSET_JPG = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X} 2048w`;
-const HERO_SRCSET_WEBP = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X_WEBP} 2048w`;
+const HERO_SRCSET_JPG = `${HERO_IMAGE} 471w, ${HERO_IMAGE_2X} 942w`;
 const HERO_SIZES = '(min-width: 1024px) 50vw, 100vw';
 
 const FOOTER_GRADIENT = `linear-gradient(90deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 45%, ${BRAND.navySoft} 100%)`;
-const FORM_PANEL_BG = `linear-gradient(180deg, #ffffff 0%, #f7f9fc 55%, #eef2f8 100%)`;
 
 function TarjetaContactFooter({ className = '' }: { className?: string }) {
   return (
@@ -47,7 +44,7 @@ function TarjetaContactFooter({ className = '' }: { className?: string }) {
   );
 }
 
-/** Hero — foto kit a pantalla completa (sin capas CSS duplicadas). */
+/** Hero izquierdo — mujer + tarjeta (recorte kit, sin textos superpuestos). */
 function TarjetaHeroPanel() {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -55,36 +52,27 @@ function TarjetaHeroPanel() {
   return (
     <>
       {!ready && !failed && (
-        <div className="absolute inset-0 bg-[#2E6DBF]" aria-hidden />
+        <div className="absolute inset-0 bg-white" aria-hidden />
       )}
 
       {!failed && (
-        <picture
-          className={`absolute inset-0 block transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
-        >
-          <source type="image/webp" srcSet={HERO_SRCSET_WEBP} sizes={HERO_SIZES} />
-          <img
-            src={HERO_IMAGE}
-            srcSet={HERO_SRCSET_JPG}
-            sizes={HERO_SIZES}
-            alt=""
-            aria-hidden
-            className="h-full w-full object-cover object-[50%_78%] sm:object-[50%_68%] lg:object-[50%_52%]"
-            draggable={false}
-            decoding="async"
-            fetchPriority="high"
-            onLoad={() => setReady(true)}
-            onError={() => setFailed(true)}
-          />
-        </picture>
+        <img
+          src={HERO_IMAGE}
+          srcSet={HERO_SRCSET_JPG}
+          sizes={HERO_SIZES}
+          alt=""
+          aria-hidden
+          className={`absolute inset-0 h-full w-full object-cover object-[50%_42%] transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
+          draggable={false}
+          decoding="async"
+          fetchPriority="high"
+          onLoad={() => setReady(true)}
+          onError={() => setFailed(true)}
+        />
       )}
 
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-32 bg-gradient-to-b from-[#050924]/50 to-transparent"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[28%] bg-gradient-to-t from-[#0F1A5A]/28 via-[#0F1A5A]/8 to-transparent"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-16 bg-gradient-to-t from-white/80 to-transparent lg:hidden"
         aria-hidden
       />
     </>
@@ -248,65 +236,38 @@ export function ActivacionTarjetaEntry() {
         className="relative grid min-h-[100dvh] w-full lg:grid-cols-2 lg:grid-rows-[1fr_auto]"
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
-        {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
-        <div
-          className="relative min-h-[46vh] overflow-hidden sm:min-h-[48vh] lg:min-h-0"
-          style={{ backgroundColor: BRAND.navyDeep }}
-        >
+        {/* Hero — mujer + tarjeta (izquierda desktop / arriba móvil), sin copy encima */}
+        <div className="relative min-h-[44vh] overflow-hidden bg-white sm:min-h-[46vh] lg:min-h-0">
           <TarjetaHeroPanel />
-
-          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col p-6 sm:p-8 lg:justify-between lg:p-10">
-            <div className="max-w-xs rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.35)] backdrop-blur-md">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/85">
-                Tarjética RCV
-              </p>
-              <p className="mt-1 text-lg font-extrabold leading-snug text-white drop-shadow-sm sm:text-xl">
-                Obtén tu póliza digital en minutos
-              </p>
-            </div>
-
-            <p className="mt-auto hidden max-w-sm rounded-xl border border-white/35 bg-white/88 px-3.5 py-2.5 text-sm leading-relaxed text-[#0F1A5A] shadow-[0_8px_24px_-10px_rgba(9,17,51,0.28)] backdrop-blur-sm sm:text-[0.9375rem] lg:block">
-              Activa tu protección vehicular con el código del reverso de tu tarjeta.
-            </p>
-          </div>
         </div>
 
-        {/* Panel formulario — mitad derecha full bleed; contenido centrado en pantallas muy anchas */}
-        <div
-          className="flex min-h-full flex-col lg:min-h-0 lg:border-l lg:border-[#0F1A5A]/10"
-          style={{ background: FORM_PANEL_BG }}
-        >
-          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col xl:max-w-lg">
-          <div className="border-b border-slate-100 px-6 pb-5 pt-8 text-center sm:px-10 sm:pt-10">
-            <h1 className="font-sans text-xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-2xl">
-              Activación de tarjeta
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-slate-500">
-              Ingresa el código impreso en el reverso de tu tarjeta RCV.
-            </p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#2E6DBF]/10 px-3 py-1.5 text-xs font-semibold text-[#0F1A5A]">
-              <ShieldCheck size={14} aria-hidden className="text-[#2E6DBF]" />
-              Protección vehicular RCV
+        {/* Panel derecho — formulario limpio (donde iba el texto del banner) */}
+        <div className="flex min-h-full flex-col bg-white lg:min-h-0 lg:border-l lg:border-slate-100">
+          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-8 sm:px-10 sm:py-10 lg:max-w-lg lg:px-12">
+            <div className="text-center">
+              <h1 className="font-sans text-2xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-[1.65rem]">
+                Activación de tarjeta
+              </h1>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                Ingresa el código impreso en el reverso de tu tarjeta RCV.
+              </p>
+              <div className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[#2E6DBF]">
+                <ShieldCheck size={14} aria-hidden />
+                Protección vehicular RCV
+              </div>
             </div>
-          </div>
 
-          {/* Pista visual — frente/reverso tarjeta */}
-          <div className="border-b border-[#0F1A5A]/8 bg-[#f3f6fb]/90 px-6 py-5 sm:px-10">
-            <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-              ¿Dónde está el código?
-            </p>
-            <div className="mx-auto flex max-w-md items-center gap-4">
+            <div className="mt-8 flex items-center justify-center gap-4 rounded-2xl bg-[#f8fafc] px-4 py-4 sm:px-5">
               <TarjetaCodigoHint />
               <p className="text-left text-sm leading-relaxed text-slate-600">
-                El código está en el <strong className="text-[#0F1A5A]">reverso</strong> de la
-                tarjética, junto al QR.
+                El código está en el <strong className="text-[#0F1A5A]">reverso</strong>, junto al
+                QR.
               </p>
             </div>
-          </div>
 
           <form
             onSubmit={handleSubmit}
-            className="flex flex-1 flex-col px-6 py-7 sm:px-10 sm:py-8"
+            className="mt-8 flex flex-col"
           >
             <label htmlFor="codigo-tarjeta" className="sr-only">
               Código de tarjeta
@@ -357,9 +318,6 @@ export function ActivacionTarjetaEntry() {
               )}
             </button>
 
-            <p className="mt-auto pt-6 text-center text-xs leading-relaxed text-slate-400 lg:hidden">
-              Protección vehicular RCV · La Mundial de Seguros
-            </p>
           </form>
           </div>
         </div>
