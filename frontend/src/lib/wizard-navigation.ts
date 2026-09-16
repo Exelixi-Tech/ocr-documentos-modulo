@@ -13,6 +13,7 @@ const DEFAULT_REQUIRED: DocType[] = ['cedula', 'certificado'];
 
 /** Documentos obligatorios por producto cuando no hay config de admin. */
 export function getDefaultRequiredDocs(productId: string): DocType[] {
+  if (productId === 'patrimoniales') return ['cedula'];
   if (productId !== 'funerario') return DEFAULT_REQUIRED;
   // Viajero: un solo asegurado, basta la cédula del tomador.
   return isViajeroPersonas() ? ['cedula'] : ['cedula', 'cedula_titular'];

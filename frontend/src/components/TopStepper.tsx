@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Check, ChevronLeft, ChevronRight, FileText, UserCog, ShieldCheck, CreditCard, Car, Users,
+  Check, ChevronLeft, ChevronRight, FileText, UserCog, ShieldCheck, CreditCard, Car, Users, Building2,
 } from 'lucide-react';
 import {
   canNavigateToStep,
@@ -37,7 +37,7 @@ export function TopStepper() {
     { n: 2, label: product.hasVehicle ? 'Emisión' : 'Tomador', Icon: UserCog },
     product.hasVehicle
       ? { n: 3, label: 'Vehículo', Icon: Car }
-      : { n: 3, label: 'Asegurado', Icon: Users },
+      : { n: 3, label: product.id === 'patrimoniales' ? 'Bien' : 'Asegurado', Icon: product.id === 'patrimoniales' ? Building2 : Users },
     { n: 4, label: 'Plan', Icon: ShieldCheck },
     { n: 5, label: 'Pago', Icon: CreditCard },
   ];

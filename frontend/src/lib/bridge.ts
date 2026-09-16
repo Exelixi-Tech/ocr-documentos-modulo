@@ -220,7 +220,7 @@ function makeBridge(): BridgeAPI {
     }
     // Limpieza de datos fantasma y bloqueo de producto en la sesión backend
     const prod = sessionStorage.getItem('exelixi_product') || 'rcv';
-    if (prod === 'funerario') {
+    if (prod === 'funerario' || prod === 'patrimoniales') {
       delete out.vehicle;
     } else if (prod === 'rcv') {
       delete out.funeral;
@@ -272,7 +272,7 @@ function makeBridge(): BridgeAPI {
       if (r?.data?.data) {
         applyHydration(r.data.data);
         const sessionProduct = r.data.data.product;
-        if (sessionProduct === 'rcv' || sessionProduct === 'funerario') {
+        if (sessionProduct === 'rcv' || sessionProduct === 'funerario' || sessionProduct === 'patrimoniales') {
           try { sessionStorage.setItem('exelixi_product', sessionProduct); } catch { /* ignore */ }
         }
         const urlToken = getNexusTokenFromUrl();
