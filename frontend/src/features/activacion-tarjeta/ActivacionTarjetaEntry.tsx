@@ -21,14 +21,14 @@ const BRAND = {
   btnTo: '#4A5F7A',
 } as const;
 
-const HERO_IMAGE = publicAsset('tarjeta/hero-mujer-movil.jpg');
-const HERO_IMAGE_2X = publicAsset('tarjeta/hero-mujer-movil@2x.jpg');
+const HERO_IMAGE = publicAsset('tarjeta/hero-activacion.jpg');
+const HERO_IMAGE_2X = publicAsset('tarjeta/hero-activacion@2x.jpg');
 const LOGO_LA_MUNDIAL = publicAsset('logo-lamundial.png');
 
-const HERO_SRCSET_JPG = `${HERO_IMAGE} 471w, ${HERO_IMAGE_2X} 942w`;
-const HERO_SIZES = '(min-width: 1024px) 50vw, 100vw';
+const HERO_SRCSET_JPG = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X} 2048w`;
 
 const FOOTER_GRADIENT = `linear-gradient(90deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 45%, ${BRAND.navySoft} 100%)`;
+const PAGE_BG = `linear-gradient(135deg, ${BRAND.navySoft} 0%, #1E3E9E 45%, ${BRAND.navy} 100%)`;
 
 function TarjetaContactFooter({ className = '' }: { className?: string }) {
   return (
@@ -44,38 +44,23 @@ function TarjetaContactFooter({ className = '' }: { className?: string }) {
   );
 }
 
-/** Hero izquierdo — mujer + tarjeta (recorte kit, sin textos superpuestos). */
-function TarjetaHeroPanel() {
+/** Fondo — foto kit editada (mujer + azul limpio, sin textos del banner). */
+function TarjetaBackdrop() {
   const [ready, setReady] = useState(false);
-  const [failed, setFailed] = useState(false);
 
   return (
-    <>
-      {!ready && !failed && (
-        <div className="absolute inset-0 bg-white" aria-hidden />
-      )}
-
-      {!failed && (
-        <img
-          src={HERO_IMAGE}
-          srcSet={HERO_SRCSET_JPG}
-          sizes={HERO_SIZES}
-          alt=""
-          aria-hidden
-          className={`absolute inset-0 h-full w-full object-cover object-[50%_42%] transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
-          draggable={false}
-          decoding="async"
-          fetchPriority="high"
-          onLoad={() => setReady(true)}
-          onError={() => setFailed(true)}
-        />
-      )}
-
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-16 bg-gradient-to-t from-white/80 to-transparent lg:hidden"
-        aria-hidden
-      />
-    </>
+    <img
+      src={HERO_IMAGE}
+      srcSet={HERO_SRCSET_JPG}
+      sizes="100vw"
+      alt=""
+      aria-hidden
+      className={`pointer-events-none absolute inset-0 hidden h-full w-full object-cover object-left transition-opacity duration-500 lg:block ${ready ? 'opacity-100' : 'opacity-0'}`}
+      draggable={false}
+      decoding="async"
+      fetchPriority="high"
+      onLoad={() => setReady(true)}
+    />
   );
 }
 
@@ -230,45 +215,44 @@ export function ActivacionTarjetaEntry() {
     <div
       role="dialog"
       aria-label="Activación de tarjeta RCV"
-      className="fixed inset-0 z-[70] min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#eef2f8]"
+      className="fixed inset-0 z-[70] flex min-h-[100dvh] flex-col overflow-x-hidden overflow-y-auto"
+      style={{ background: PAGE_BG }}
     >
+      <TarjetaBackdrop />
+
       <div
-        className="relative grid min-h-[100dvh] w-full lg:grid-cols-2 lg:grid-rows-[1fr_auto]"
+        className="relative flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:justify-end lg:px-[7vw] lg:py-10"
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
-        {/* Hero — mujer + tarjeta (izquierda desktop / arriba móvil), sin copy encima */}
-        <div className="relative min-h-[44vh] overflow-hidden bg-white sm:min-h-[46vh] lg:min-h-0">
-          <TarjetaHeroPanel />
-        </div>
-
-        {/* Panel derecho — formulario limpio (donde iba el texto del banner) */}
-        <div className="flex min-h-full flex-col bg-white lg:min-h-0 lg:border-l lg:border-slate-100">
-          <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-8 sm:px-10 sm:py-10 lg:max-w-lg lg:px-12">
-            <div className="text-center">
-              <h1 className="font-sans text-2xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-[1.65rem]">
-                Activación de tarjeta
-              </h1>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Ingresa el código impreso en el reverso de tu tarjeta RCV.
-              </p>
-              <div className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[#2E6DBF]">
-                <ShieldCheck size={14} aria-hidden />
-                Protección vehicular RCV
-              </div>
+        {/* Login opaco — nunca transparente sobre la foto */}
+        <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_30px_70px_-25px_rgba(5,9,36,0.65)] ring-1 ring-white/60 sm:p-8">
+          <div className="text-center">
+            <img
+              src={LOGO_LA_MUNDIAL}
+              alt="La Mundial de Seguros"
+              className="mx-auto h-11 w-auto object-contain sm:h-12"
+              draggable={false}
+            />
+            <h1 className="mt-5 font-sans text-xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-2xl">
+              Activación de tarjeta
+            </h1>
+            <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              Ingresa el código impreso en el reverso de tu tarjeta RCV.
+            </p>
+            <div className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[#2E6DBF]">
+              <ShieldCheck size={14} aria-hidden />
+              Protección vehicular RCV
             </div>
+          </div>
 
-            <div className="mt-8 flex items-center justify-center gap-4 rounded-2xl bg-[#f8fafc] px-4 py-4 sm:px-5">
-              <TarjetaCodigoHint />
-              <p className="text-left text-sm leading-relaxed text-slate-600">
-                El código está en el <strong className="text-[#0F1A5A]">reverso</strong>, junto al
-                QR.
-              </p>
-            </div>
+          <div className="mt-6 flex items-center justify-center gap-4 rounded-2xl bg-[#f5f8fc] px-4 py-4 sm:px-5">
+            <TarjetaCodigoHint />
+            <p className="text-left text-sm leading-relaxed text-slate-600">
+              El código está en el <strong className="text-[#0F1A5A]">reverso</strong>, junto al QR.
+            </p>
+          </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="mt-8 flex flex-col"
-          >
+          <form onSubmit={handleSubmit} className="mt-6 flex flex-col">
             <label htmlFor="codigo-tarjeta" className="sr-only">
               Código de tarjeta
             </label>
@@ -317,13 +301,11 @@ export function ActivacionTarjetaEntry() {
                 'Validar'
               )}
             </button>
-
           </form>
-          </div>
         </div>
-
-        <TarjetaContactFooter className="lg:col-span-2" />
       </div>
+
+      <TarjetaContactFooter className="relative" />
     </div>
   );
 }
