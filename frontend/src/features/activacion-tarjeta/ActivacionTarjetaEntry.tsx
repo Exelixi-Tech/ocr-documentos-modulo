@@ -30,32 +30,20 @@ const HERO_SRCSET_JPG = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X} 2048w`;
 const HERO_SRCSET_WEBP = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X_WEBP} 2048w`;
 const HERO_SIZES = '(min-width: 1024px) 50vw, 100vw';
 
-/** Hero — kit Tarjética (1024 + @2x); fondo CSS extiende el arte en pantallas altas. */
+/** Hero — foto kit a pantalla completa (sin capas CSS duplicadas). */
 function TarjetaHeroPanel() {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
 
   return (
     <>
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `linear-gradient(180deg, ${BRAND.blueLight} 0%, ${BRAND.blueMid} 50%, ${BRAND.navy} 100%)`,
-        }}
-        aria-hidden
-      />
-      <div
-        className="absolute bottom-0 left-1/2 h-[42%] w-[148%] -translate-x-1/2 rounded-[50%] bg-white"
-        aria-hidden
-      />
-
       {!ready && !failed && (
-        <div className="absolute inset-0" style={{ backgroundColor: BRAND.blueMid }} aria-hidden />
+        <div className="absolute inset-0 bg-[#2E6DBF]" aria-hidden />
       )}
 
       {!failed && (
         <picture
-          className={`absolute inset-0 transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 block transition-opacity duration-500 ${ready ? 'opacity-100' : 'opacity-0'}`}
         >
           <source type="image/webp" srcSet={HERO_SRCSET_WEBP} sizes={HERO_SIZES} />
           <img
@@ -64,7 +52,7 @@ function TarjetaHeroPanel() {
             sizes={HERO_SIZES}
             alt=""
             aria-hidden
-            className="h-full w-full object-contain object-bottom"
+            className="h-full w-full object-cover object-[50%_62%] sm:object-[50%_58%] lg:object-[50%_52%]"
             draggable={false}
             decoding="async"
             fetchPriority="high"
@@ -74,8 +62,9 @@ function TarjetaHeroPanel() {
         </picture>
       )}
 
+      {/* Velo solo arriba — legibilidad del copy */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-36 bg-gradient-to-b from-[#050924]/45 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-32 bg-gradient-to-b from-[#050924]/50 to-transparent"
         aria-hidden
       />
     </>
