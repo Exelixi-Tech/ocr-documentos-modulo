@@ -24,53 +24,95 @@ const BRAND = {
 const HERO_IMAGE = publicAsset('tarjeta/hero-mano-tarjeta.jpg');
 const CARD_HINT_IMAGE = publicAsset('tarjeta/tarjeta-frente-reverso.jpg');
 
-function TarjetaHeroFallback() {
+/** Fondo marca — mesh + semicírculo (kit Tarjética), siempre detrás del hero. */
+function TarjetaHeroBackdrop() {
   return (
     <>
       <div
         className="absolute inset-0"
         style={{
-          background: `linear-gradient(145deg, ${BRAND.blueLight} 0%, ${BRAND.blueMid} 35%, ${BRAND.navy} 100%)`,
+          background: `linear-gradient(155deg, #050924 0%, ${BRAND.navyDeep} 32%, ${BRAND.navy} 58%, ${BRAND.navySoft} 100%)`,
         }}
       />
       <div
-        className="absolute bottom-0 left-1/2 h-[42%] w-[140%] -translate-x-1/2 rounded-[50%] bg-white"
+        className="absolute inset-0"
+        aria-hidden
+        style={{
+          backgroundImage: `
+            radial-gradient(ellipse 90% 70% at 8% 12%, ${BRAND.blueLight}55 0%, transparent 52%),
+            radial-gradient(ellipse 75% 55% at 92% 18%, ${BRAND.blueMid}40 0%, transparent 48%),
+            radial-gradient(ellipse 65% 50% at 78% 92%, ${BRAND.red}28 0%, transparent 55%),
+            radial-gradient(ellipse 120% 80% at 50% 110%, rgba(255,255,255,0.14) 0%, transparent 45%)
+          `,
+        }}
+      />
+      {/* Semicírculo blanco suave — continuidad con el panel derecho / base del hero */}
+      <div
+        className="absolute bottom-0 left-1/2 h-[46%] w-[155%] -translate-x-1/2 rounded-[50%] bg-white/95 shadow-[0_-20px_60px_-20px_rgba(255,255,255,0.35)]"
         aria-hidden
       />
-      <div className="absolute inset-x-0 bottom-[18%] flex justify-center px-6">
-        <div className="w-full max-w-[220px] rotate-[-8deg] rounded-2xl bg-white p-4 shadow-[0_24px_48px_-20px_rgba(9,17,51,0.45)] ring-1 ring-slate-200/80">
-          <img
-            src={publicAsset('logo-isotipo-transparente.png')}
-            alt=""
-            className="mx-auto h-14 w-auto"
-            draggable={false}
-          />
-          <p className="mt-2 text-center font-wordmark text-sm text-[#0F1A5A]">
-            LA MUNDIAL <span className="italic text-[#E84F51]">de Seguros</span>
-          </p>
-        </div>
-      </div>
+      <div
+        className="absolute bottom-[38%] left-1/2 h-32 w-[80%] -translate-x-1/2 rounded-full bg-white/20 blur-3xl"
+        aria-hidden
+      />
     </>
+  );
+}
+
+function TarjetaHeroFallback() {
+  return (
+    <div className="absolute inset-x-0 bottom-[14%] flex justify-center px-6">
+      <div className="w-full max-w-[220px] rotate-[-8deg] rounded-2xl bg-white p-4 shadow-[0_24px_48px_-20px_rgba(9,17,51,0.45)] ring-1 ring-slate-200/80">
+        <img
+          src={publicAsset('logo-isotipo-transparente.png')}
+          alt=""
+          className="mx-auto h-14 w-auto"
+          draggable={false}
+        />
+        <p className="mt-2 text-center font-wordmark text-sm text-[#0F1A5A]">
+          LA MUNDIAL <span className="italic text-[#E84F51]">de Seguros</span>
+        </p>
+      </div>
+    </div>
   );
 }
 
 function TarjetaHeroPanel() {
   const [heroReady, setHeroReady] = useState(false);
   const [heroFailed, setHeroFailed] = useState(false);
+  const showPhoto = heroReady && !heroFailed;
 
   return (
     <>
+      <TarjetaHeroBackdrop />
+
       {!heroFailed && (
         <img
           src={HERO_IMAGE}
           alt=""
           aria-hidden
-          className={`absolute inset-0 h-full w-full object-cover object-[center_35%] transition-opacity duration-500 ${heroReady ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 h-full w-full object-cover object-[center_42%] transition-opacity duration-700 ${showPhoto ? 'opacity-100' : 'opacity-0'}`}
           draggable={false}
           onLoad={() => setHeroReady(true)}
           onError={() => setHeroFailed(true)}
         />
       )}
+
+      {/* Velo sobre la foto — unifica tonos azules y mejora contraste del copy */}
+      {showPhoto && (
+        <div
+          className="absolute inset-0"
+          aria-hidden
+          style={{
+            background: `
+              linear-gradient(180deg, rgba(5,9,36,0.72) 0%, rgba(9,17,51,0.18) 38%, rgba(9,17,51,0.08) 58%, rgba(15,26,90,0.35) 100%),
+              linear-gradient(115deg, rgba(46,109,191,0.22) 0%, transparent 45%),
+              radial-gradient(ellipse 80% 60% at 100% 100%, rgba(232,79,81,0.12) 0%, transparent 55%)
+            `,
+          }}
+        />
+      )}
+
       {(!heroReady || heroFailed) && <TarjetaHeroFallback />}
     </>
   );
@@ -146,22 +188,22 @@ export function ActivacionTarjetaEntry() {
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
         {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
-        <div className="relative min-h-[38vh] overflow-hidden lg:min-h-[100dvh]">
+        <div className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-[100dvh]">
           <TarjetaHeroPanel />
 
-          <div className="relative z-10 flex h-full flex-col justify-between p-6 sm:p-8 lg:p-10">
-            <div className="rounded-2xl bg-[#0F1A5A]/35 px-4 py-3 backdrop-blur-sm ring-1 ring-white/15 lg:max-w-xs">
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/80">
+          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col justify-between p-6 sm:p-8 lg:p-10">
+            <div className="max-w-xs rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.35)] backdrop-blur-md">
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/85">
                 Tarjética RCV
               </p>
-              <p className="mt-1 text-lg font-extrabold leading-snug text-white sm:text-xl">
+              <p className="mt-1 text-lg font-extrabold leading-snug text-white drop-shadow-sm sm:text-xl">
                 Obtén tu póliza digital en minutos
               </p>
             </div>
 
-            <p className="hidden max-w-sm text-sm leading-relaxed text-white/75 lg:block">
-              Activa tu protección vehicular con el código impreso en el reverso de tu tarjeta de
-              farmacia aliada.
+            <p className="max-w-sm pb-1 text-sm leading-relaxed text-white/90 drop-shadow-md sm:text-[0.9375rem] lg:pb-0">
+              Activa tu protección vehicular con el código del reverso de tu tarjeta en farmacia
+              aliada.
             </p>
           </div>
         </div>
