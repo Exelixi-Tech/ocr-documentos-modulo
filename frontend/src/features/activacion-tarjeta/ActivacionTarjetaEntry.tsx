@@ -30,7 +30,8 @@ const HERO_SRCSET_JPG = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X} 2048w`;
 const HERO_SRCSET_WEBP = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X_WEBP} 2048w`;
 const HERO_SIZES = '(min-width: 1024px) 50vw, 100vw';
 
-const FOOTER_GRADIENT = `linear-gradient(90deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 38%, ${BRAND.navySoft} 72%, ${BRAND.blueMid} 100%)`;
+const FOOTER_GRADIENT = `linear-gradient(90deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 45%, ${BRAND.navySoft} 100%)`;
+const FORM_PANEL_BG = `linear-gradient(180deg, #ffffff 0%, #f7f9fc 55%, #eef2f8 100%)`;
 
 /** Hero — foto kit a pantalla completa (sin capas CSS duplicadas). */
 function TarjetaHeroPanel() {
@@ -69,7 +70,7 @@ function TarjetaHeroPanel() {
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[38%] bg-gradient-to-t from-[#0F1A5A]/55 via-[#0F1A5A]/18 to-transparent"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[28%] bg-gradient-to-t from-[#0F1A5A]/28 via-[#0F1A5A]/8 to-transparent"
         aria-hidden
       />
     </>
@@ -230,18 +231,17 @@ export function ActivacionTarjetaEntry() {
       className="fixed inset-0 z-[70] min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#eef2f8]"
     >
       <div
-        className="relative flex min-h-[100dvh] w-full flex-col"
+        className="relative grid min-h-[100dvh] w-full lg:grid-cols-2"
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
-      <div className="grid min-h-0 flex-1 w-full lg:grid-cols-2">
         {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
         <div
-          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-full"
+          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-[100dvh]"
           style={{ backgroundColor: BRAND.navyDeep }}
         >
           <TarjetaHeroPanel />
 
-          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col justify-between p-6 sm:p-8 lg:p-10">
+          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col justify-between p-6 sm:p-8 lg:p-10 lg:pb-[4.75rem]">
             <div className="max-w-xs rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.35)] backdrop-blur-md">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/85">
                 Tarjética RCV
@@ -251,14 +251,27 @@ export function ActivacionTarjetaEntry() {
               </p>
             </div>
 
-            <p className="max-w-sm rounded-xl border border-white/40 bg-white/95 px-3.5 py-2.5 text-sm leading-relaxed text-[#0F1A5A] shadow-[0_8px_24px_-10px_rgba(9,17,51,0.4)] sm:text-[0.9375rem]">
+            <p className="max-w-sm rounded-xl border border-white/35 bg-white/88 px-3.5 py-2.5 text-sm leading-relaxed text-[#0F1A5A] shadow-[0_8px_24px_-10px_rgba(9,17,51,0.28)] backdrop-blur-sm sm:text-[0.9375rem]">
               Activa tu protección vehicular con el código del reverso de tu tarjeta.
+            </p>
+          </div>
+
+          <div
+            className="absolute inset-x-0 bottom-0 z-[2] hidden px-4 py-3.5 text-center text-white sm:px-6 lg:block"
+            style={{ background: FOOTER_GRADIENT }}
+          >
+            <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
+              <Phone size={16} aria-hidden className="shrink-0 opacity-90" />
+              <span>Contacto directo: 0500 552 62 56</span>
             </p>
           </div>
         </div>
 
         {/* Panel formulario — mitad derecha full bleed; contenido centrado en pantallas muy anchas */}
-        <div className="flex min-h-full flex-col bg-white lg:border-l lg:border-slate-200/80">
+        <div
+          className="flex min-h-full flex-col lg:min-h-[100dvh] lg:border-l lg:border-[#0F1A5A]/10"
+          style={{ background: FORM_PANEL_BG }}
+        >
           <div className="mx-auto flex w-full max-w-xl flex-1 flex-col xl:max-w-lg">
           <div className="border-b border-slate-100 px-6 pb-5 pt-8 text-center sm:px-10 sm:pt-10">
             <h1 className="font-sans text-xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-2xl">
@@ -267,14 +280,14 @@ export function ActivacionTarjetaEntry() {
             <p className="mt-2 text-sm leading-relaxed text-slate-500">
               Ingresa el código impreso en el reverso de tu tarjeta RCV.
             </p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-800">
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#2E6DBF]/10 px-3 py-1.5 text-xs font-semibold text-[#0F1A5A]">
               <ShieldCheck size={14} aria-hidden className="text-[#2E6DBF]" />
               Protección vehicular RCV
             </div>
           </div>
 
           {/* Pista visual — frente/reverso tarjeta */}
-          <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-5 sm:px-10">
+          <div className="border-b border-[#0F1A5A]/8 bg-[#f3f6fb]/90 px-6 py-5 sm:px-10">
             <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
               ¿Dónde está el código?
             </p>
@@ -345,17 +358,16 @@ export function ActivacionTarjetaEntry() {
             </p>
           </form>
           </div>
-        </div>
-      </div>
 
-        <div
-          className="shrink-0 border-t border-white/10 px-4 py-3.5 text-center text-white shadow-[0_-8px_32px_-12px_rgba(9,17,51,0.45)] sm:px-6"
-          style={{ background: FOOTER_GRADIENT }}
-        >
-          <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
-            <Phone size={16} aria-hidden className="shrink-0" />
-            <span>Contacto directo: 0500 552 62 56</span>
-          </p>
+          <div
+            className="mt-auto px-4 py-3.5 text-center text-white sm:px-6"
+            style={{ background: FOOTER_GRADIENT }}
+          >
+            <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
+              <Phone size={16} aria-hidden className="shrink-0 opacity-90" />
+              <span>Contacto directo: 0500 552 62 56</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
