@@ -30,6 +30,8 @@ const HERO_SRCSET_JPG = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X} 2048w`;
 const HERO_SRCSET_WEBP = `${HERO_IMAGE} 1024w, ${HERO_IMAGE_2X_WEBP} 2048w`;
 const HERO_SIZES = '(min-width: 1024px) 50vw, 100vw';
 
+const FOOTER_GRADIENT = `linear-gradient(90deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 38%, ${BRAND.navySoft} 72%, ${BRAND.blueMid} 100%)`;
+
 /** Hero — foto kit a pantalla completa (sin capas CSS duplicadas). */
 function TarjetaHeroPanel() {
   const [ready, setReady] = useState(false);
@@ -62,9 +64,12 @@ function TarjetaHeroPanel() {
         </picture>
       )}
 
-      {/* Velo solo arriba — legibilidad del copy */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-32 bg-gradient-to-b from-[#050924]/50 to-transparent"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[38%] bg-gradient-to-t from-[#0F1A5A]/55 via-[#0F1A5A]/18 to-transparent"
         aria-hidden
       />
     </>
@@ -225,12 +230,13 @@ export function ActivacionTarjetaEntry() {
       className="fixed inset-0 z-[70] min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#eef2f8]"
     >
       <div
-        className="relative grid min-h-[100dvh] w-full lg:grid-cols-2"
+        className="relative flex min-h-[100dvh] w-full flex-col"
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
+      <div className="grid min-h-0 flex-1 w-full lg:grid-cols-2">
         {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
         <div
-          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-[100dvh]"
+          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-full"
           style={{ backgroundColor: BRAND.navyDeep }}
         >
           <TarjetaHeroPanel />
@@ -245,14 +251,14 @@ export function ActivacionTarjetaEntry() {
               </p>
             </div>
 
-            <p className="max-w-sm pb-1 text-sm leading-relaxed text-white/90 drop-shadow-md sm:text-[0.9375rem] lg:pb-0">
+            <p className="max-w-sm rounded-xl border border-white/40 bg-white/95 px-3.5 py-2.5 text-sm leading-relaxed text-[#0F1A5A] shadow-[0_8px_24px_-10px_rgba(9,17,51,0.4)] sm:text-[0.9375rem]">
               Activa tu protección vehicular con el código del reverso de tu tarjeta.
             </p>
           </div>
         </div>
 
         {/* Panel formulario — mitad derecha full bleed; contenido centrado en pantallas muy anchas */}
-        <div className="flex flex-col bg-white lg:min-h-[100dvh] lg:border-l lg:border-slate-200/80">
+        <div className="flex min-h-full flex-col bg-white lg:border-l lg:border-slate-200/80">
           <div className="mx-auto flex w-full max-w-xl flex-1 flex-col xl:max-w-lg">
           <div className="border-b border-slate-100 px-6 pb-5 pt-8 text-center sm:px-10 sm:pt-10">
             <h1 className="font-sans text-xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-2xl">
@@ -339,16 +345,17 @@ export function ActivacionTarjetaEntry() {
             </p>
           </form>
           </div>
+        </div>
+      </div>
 
-          <div
-            className="mt-auto px-4 py-3.5 text-center text-white sm:px-6"
-            style={{ background: `linear-gradient(90deg, ${BRAND.navy} 0%, ${BRAND.navySoft} 100%)` }}
-          >
-            <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
-              <Phone size={16} aria-hidden className="shrink-0" />
-              <span>Contacto directo: 0500 552 62 56</span>
-            </p>
-          </div>
+        <div
+          className="shrink-0 border-t border-white/10 px-4 py-3.5 text-center text-white shadow-[0_-8px_32px_-12px_rgba(9,17,51,0.45)] sm:px-6"
+          style={{ background: FOOTER_GRADIENT }}
+        >
+          <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
+            <Phone size={16} aria-hidden className="shrink-0" />
+            <span>Contacto directo: 0500 552 62 56</span>
+          </p>
         </div>
       </div>
     </div>
