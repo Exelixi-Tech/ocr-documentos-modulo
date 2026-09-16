@@ -33,6 +33,20 @@ const HERO_SIZES = '(min-width: 1024px) 50vw, 100vw';
 const FOOTER_GRADIENT = `linear-gradient(90deg, ${BRAND.navyDeep} 0%, ${BRAND.navy} 45%, ${BRAND.navySoft} 100%)`;
 const FORM_PANEL_BG = `linear-gradient(180deg, #ffffff 0%, #f7f9fc 55%, #eef2f8 100%)`;
 
+function TarjetaContactFooter({ className = '' }: { className?: string }) {
+  return (
+    <div
+      className={`px-4 py-3.5 text-center text-white sm:px-6 ${className}`}
+      style={{ background: FOOTER_GRADIENT }}
+    >
+      <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
+        <Phone size={16} aria-hidden className="shrink-0 opacity-90" />
+        <span>Contacto directo: 0500 552 62 56</span>
+      </p>
+    </div>
+  );
+}
+
 /** Hero — foto kit a pantalla completa (sin capas CSS duplicadas). */
 function TarjetaHeroPanel() {
   const [ready, setReady] = useState(false);
@@ -231,17 +245,17 @@ export function ActivacionTarjetaEntry() {
       className="fixed inset-0 z-[70] min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#eef2f8]"
     >
       <div
-        className="relative grid min-h-[100dvh] w-full lg:grid-cols-2"
+        className="relative grid min-h-[100dvh] w-full lg:grid-cols-2 lg:grid-rows-[1fr_auto]"
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
         {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
         <div
-          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-[100dvh]"
+          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-0"
           style={{ backgroundColor: BRAND.navyDeep }}
         >
           <TarjetaHeroPanel />
 
-          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col justify-between p-6 sm:p-8 lg:p-10 lg:pb-[4.75rem]">
+          <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col justify-between p-6 sm:p-8 lg:p-10">
             <div className="max-w-xs rounded-2xl border border-white/20 bg-white/10 px-4 py-3 shadow-[0_8px_32px_-12px_rgba(0,0,0,0.35)] backdrop-blur-md">
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-white/85">
                 Tarjética RCV
@@ -255,21 +269,11 @@ export function ActivacionTarjetaEntry() {
               Activa tu protección vehicular con el código del reverso de tu tarjeta.
             </p>
           </div>
-
-          <div
-            className="absolute inset-x-0 bottom-0 z-[2] hidden px-4 py-3.5 text-center text-white sm:px-6 lg:block"
-            style={{ background: FOOTER_GRADIENT }}
-          >
-            <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
-              <Phone size={16} aria-hidden className="shrink-0 opacity-90" />
-              <span>Contacto directo: 0500 552 62 56</span>
-            </p>
-          </div>
         </div>
 
         {/* Panel formulario — mitad derecha full bleed; contenido centrado en pantallas muy anchas */}
         <div
-          className="flex min-h-full flex-col lg:min-h-[100dvh] lg:border-l lg:border-[#0F1A5A]/10"
+          className="flex min-h-full flex-col lg:min-h-0 lg:border-l lg:border-[#0F1A5A]/10"
           style={{ background: FORM_PANEL_BG }}
         >
           <div className="mx-auto flex w-full max-w-xl flex-1 flex-col xl:max-w-lg">
@@ -358,17 +362,9 @@ export function ActivacionTarjetaEntry() {
             </p>
           </form>
           </div>
-
-          <div
-            className="mt-auto px-4 py-3.5 text-center text-white sm:px-6"
-            style={{ background: FOOTER_GRADIENT }}
-          >
-            <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
-              <Phone size={16} aria-hidden className="shrink-0 opacity-90" />
-              <span>Contacto directo: 0500 552 62 56</span>
-            </p>
-          </div>
         </div>
+
+        <TarjetaContactFooter className="lg:col-span-2" />
       </div>
     </div>
   );
