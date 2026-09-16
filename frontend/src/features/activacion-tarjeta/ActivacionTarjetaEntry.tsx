@@ -181,10 +181,10 @@ export function ActivacionTarjetaEntry() {
     <div
       role="dialog"
       aria-label="Activación de tarjeta RCV"
-      className="fixed inset-0 z-[70] min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#091133]"
+      className="fixed inset-0 z-[70] min-h-[100dvh] overflow-x-hidden overflow-y-auto bg-[#eef2f8]"
     >
       <div
-        className="relative mx-auto grid min-h-[100dvh] w-full max-w-6xl lg:grid-cols-[1.05fr_0.95fr]"
+        className="relative grid min-h-[100dvh] w-full lg:grid-cols-2"
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
         {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
@@ -208,8 +208,9 @@ export function ActivacionTarjetaEntry() {
           </div>
         </div>
 
-        {/* Panel formulario */}
-        <div className="flex flex-col bg-white lg:min-h-[100dvh] lg:shadow-[-24px_0_48px_-24px_rgba(9,17,51,0.35)]">
+        {/* Panel formulario — mitad derecha full bleed; contenido centrado en pantallas muy anchas */}
+        <div className="flex flex-col bg-white lg:min-h-[100dvh] lg:border-l lg:border-slate-200/80">
+          <div className="mx-auto flex w-full max-w-xl flex-1 flex-col xl:max-w-lg">
           <div className="border-b border-slate-100 px-6 pb-5 pt-8 text-center sm:px-10 sm:pt-10">
             <h1 className="font-sans text-xl font-extrabold tracking-tight text-[#0F1A5A] sm:text-2xl">
               Activación de tarjeta
@@ -309,9 +310,10 @@ export function ActivacionTarjetaEntry() {
               Protección vehicular RCV · La Mundial de Seguros
             </p>
           </form>
+          </div>
 
           <div
-            className="px-4 py-3.5 text-center text-white sm:px-6"
+            className="mt-auto px-4 py-3.5 text-center text-white sm:px-6"
             style={{ background: `linear-gradient(90deg, ${BRAND.navy} 0%, ${BRAND.navySoft} 100%)` }}
           >
             <p className="inline-flex flex-wrap items-center justify-center gap-2 text-sm font-bold tracking-wide">
