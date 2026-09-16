@@ -22,7 +22,7 @@ const BRAND = {
 } as const;
 
 const HERO_IMAGE = publicAsset('tarjeta/hero-mano-tarjeta.jpg');
-const CARD_HINT_IMAGE = publicAsset('tarjeta/tarjeta-frente-reverso.jpg');
+const LOGO_LA_MUNDIAL = publicAsset('logo-lamundial.png');
 
 /** Fondo marca — mesh + semicírculo (kit Tarjética), siempre detrás del hero. */
 function TarjetaHeroBackdrop() {
@@ -118,6 +118,98 @@ function TarjetaHeroPanel() {
   );
 }
 
+/** QR decorativo para el reverso del mockup (no escaneable). */
+function TarjetaQrDecor() {
+  return (
+    <svg viewBox="0 0 21 21" className="h-full w-full" aria-hidden>
+      <rect width="21" height="21" fill="#fff" />
+      <g fill="#111827">
+        <rect x="0" y="0" width="7" height="7" />
+        <rect x="1" y="1" width="5" height="5" fill="#fff" />
+        <rect x="2" y="2" width="3" height="3" />
+        <rect x="14" y="0" width="7" height="7" />
+        <rect x="15" y="1" width="5" height="5" fill="#fff" />
+        <rect x="16" y="2" width="3" height="3" />
+        <rect x="0" y="14" width="7" height="7" />
+        <rect x="1" y="15" width="5" height="5" fill="#fff" />
+        <rect x="2" y="16" width="3" height="3" />
+        <rect x="8" y="0" width="1" height="1" />
+        <rect x="10" y="0" width="1" height="1" />
+        <rect x="12" y="0" width="1" height="1" />
+        <rect x="9" y="2" width="2" height="1" />
+        <rect x="8" y="4" width="1" height="2" />
+        <rect x="10" y="5" width="3" height="1" />
+        <rect x="8" y="8" width="5" height="5" />
+        <rect x="14" y="8" width="1" height="1" />
+        <rect x="16" y="9" width="2" height="1" />
+        <rect x="18" y="8" width="1" height="3" />
+        <rect x="14" y="10" width="3" height="1" />
+        <rect x="17" y="11" width="1" height="2" />
+        <rect x="8" y="14" width="1" height="1" />
+        <rect x="10" y="15" width="2" height="1" />
+        <rect x="13" y="14" width="1" height="3" />
+        <rect x="15" y="16" width="4" height="1" />
+        <rect x="8" y="17" width="3" height="1" />
+        <rect x="12" y="18" width="2" height="1" />
+        <rect x="16" y="18" width="3" height="2" />
+        <rect x="19" y="14" width="1" height="2" />
+        <rect x="20" y="17" width="1" height="1" />
+      </g>
+    </svg>
+  );
+}
+
+/** Mockup frente/reverso tarjética con logo La Mundial. */
+function TarjetaCodigoHint() {
+  return (
+    <div
+      className="relative h-[104px] w-[118px] shrink-0 sm:h-[112px] sm:w-[128px]"
+      role="img"
+      aria-label="Tarjeta La Mundial: frente con logo y reverso con código y QR"
+    >
+      <div
+        className="absolute inset-3 rounded-2xl bg-gradient-to-br from-[#2E6DBF]/12 to-[#0F1A5A]/8"
+        aria-hidden
+      />
+
+      {/* Reverso — código + QR */}
+      <div className="absolute right-0 top-2 z-10 h-[88px] w-[68px] rotate-[9deg] overflow-hidden rounded-[10px] bg-white shadow-[0_8px_22px_-8px_rgba(15,26,90,0.32)] ring-1 ring-slate-200/90 sm:h-[94px] sm:w-[72px]">
+        <div className="relative px-2 pt-2">
+          <p className="text-[6px] font-semibold uppercase tracking-[0.1em] text-slate-500 sm:text-[7px]">
+            Código
+          </p>
+          <p className="font-mono text-[7px] font-bold leading-tight text-[#0F1A5A] sm:text-[8px]">
+            A-1523425
+          </p>
+          <span
+            className="pointer-events-none absolute -inset-x-0.5 -inset-y-0.5 rounded-md ring-2 ring-[#E84F51]/75 ring-offset-1 ring-offset-white"
+            aria-hidden
+          />
+        </div>
+        <div className="mx-auto mt-1 h-9 w-9 overflow-hidden rounded-sm border border-slate-100 p-0.5 sm:h-10 sm:w-10">
+          <TarjetaQrDecor />
+        </div>
+        <div
+          className="absolute inset-x-0 bottom-0 flex h-3.5 items-center justify-end px-1.5 sm:h-4"
+          style={{ background: `linear-gradient(90deg, ${BRAND.navy} 0%, ${BRAND.navySoft} 100%)` }}
+        >
+          <Phone size={8} className="text-white/90" aria-hidden />
+        </div>
+      </div>
+
+      {/* Frente — logo La Mundial */}
+      <div className="absolute left-0 top-0 z-20 flex h-[88px] w-[68px] -rotate-[7deg] items-center justify-center overflow-hidden rounded-[10px] bg-white p-2.5 shadow-[0_12px_28px_-10px_rgba(9,17,51,0.38)] ring-1 ring-slate-200/90 sm:h-[94px] sm:w-[72px] sm:p-3">
+        <img
+          src={LOGO_LA_MUNDIAL}
+          alt=""
+          className="max-h-full max-w-full object-contain"
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
 /**
  * Entrada flujo RCV tarjeta farmacia — hero marca + panel de código.
  */
@@ -128,8 +220,6 @@ export function ActivacionTarjetaEntry() {
   const [codigo, setCodigo] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [hintImageOk, setHintImageOk] = useState(true);
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const value = normalizeCodigoTarjeta(codigo);
@@ -230,22 +320,7 @@ export function ActivacionTarjetaEntry() {
               ¿Dónde está el código?
             </p>
             <div className="mx-auto flex max-w-md items-center gap-4">
-              {hintImageOk ? (
-                <img
-                  src={CARD_HINT_IMAGE}
-                  alt="Reverso de la tarjeta RCV con código y QR"
-                  className="h-24 w-auto shrink-0 object-contain sm:h-28"
-                  draggable={false}
-                  onError={() => setHintImageOk(false)}
-                />
-              ) : (
-                <div
-                  className="flex h-24 w-36 shrink-0 items-center justify-center rounded-xl bg-white text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200"
-                  aria-hidden
-                >
-                  Reverso · QR
-                </div>
-              )}
+              <TarjetaCodigoHint />
               <p className="text-left text-sm leading-relaxed text-slate-600">
                 El código está en el <strong className="text-[#0F1A5A]">reverso</strong> de la
                 tarjética, junto al QR. También puedes encontrarlo en el sobre de farmacia.
