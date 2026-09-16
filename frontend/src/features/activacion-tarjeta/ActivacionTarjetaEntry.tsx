@@ -1,5 +1,5 @@
 ﻿import { useState, type FormEvent } from 'react';
-import { Loader2, Phone, ShieldCheck } from 'lucide-react';
+import { Loader2, Nfc, Phone, ShieldCheck } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
@@ -21,100 +21,53 @@ const BRAND = {
   btnTo: '#4A5F7A',
 } as const;
 
-const HERO_IMAGE = publicAsset('tarjeta/hero-mano-tarjeta.jpg');
 const LOGO_LA_MUNDIAL = publicAsset('logo-lamundial.png');
 
-/** Velo sobre foto del kit — legibilidad del copy sin alterar el arte de marca. */
-const HERO_PHOTO_VEIL = [
-  'linear-gradient(180deg, rgba(5,9,36,0.72) 0%, rgba(9,17,51,0.18) 38%, rgba(9,17,51,0.08) 58%, rgba(15,26,90,0.35) 100%)',
-  'linear-gradient(115deg, rgba(46,109,191,0.22) 0%, transparent 45%)',
-  'radial-gradient(ellipse 80% 60% at 100% 100%, rgba(232,79,81,0.12) 0%, transparent 55%)',
-].join(', ');
-
-/** Fondo marca — mesh + semicírculo; solo mientras carga la foto o si falla. */
-function TarjetaHeroBackdrop() {
-  return (
-    <>
-      <div
-        className="absolute inset-0"
-        style={{
-          background: `linear-gradient(155deg, #050924 0%, ${BRAND.navyDeep} 32%, ${BRAND.navy} 58%, ${BRAND.navySoft} 100%)`,
-        }}
-      />
-      <div
-        className="absolute inset-0"
-        aria-hidden
-        style={{
-          backgroundImage: `
-            radial-gradient(ellipse 90% 70% at 8% 12%, ${BRAND.blueLight}55 0%, transparent 52%),
-            radial-gradient(ellipse 75% 55% at 92% 18%, ${BRAND.blueMid}40 0%, transparent 48%),
-            radial-gradient(ellipse 65% 50% at 78% 92%, ${BRAND.red}28 0%, transparent 55%),
-            radial-gradient(ellipse 120% 80% at 50% 110%, rgba(255,255,255,0.14) 0%, transparent 45%)
-          `,
-        }}
-      />
-      {/* Semicírculo blanco suave — continuidad con el panel derecho / base del hero */}
-      <div
-        className="absolute bottom-0 left-1/2 h-[46%] w-[155%] -translate-x-1/2 rounded-[50%] bg-white/95 shadow-[0_-20px_60px_-20px_rgba(255,255,255,0.35)]"
-        aria-hidden
-      />
-      <div
-        className="absolute bottom-[38%] left-1/2 h-32 w-[80%] -translate-x-1/2 rounded-full bg-white/20 blur-3xl"
-        aria-hidden
-      />
-    </>
-  );
-}
-
-function TarjetaHeroFallback() {
-  return (
-    <div className="absolute inset-x-0 bottom-[14%] flex justify-center px-6">
-      <div className="w-full max-w-[220px] rotate-[-8deg] rounded-2xl bg-white p-4 shadow-[0_24px_48px_-20px_rgba(9,17,51,0.45)] ring-1 ring-slate-200/80">
-        <img
-          src={publicAsset('logo-isotipo-transparente.png')}
-          alt=""
-          className="mx-auto h-14 w-auto"
-          draggable={false}
-        />
-        <p className="mt-2 text-center font-wordmark text-sm text-[#0F1A5A]">
-          LA MUNDIAL <span className="italic text-[#E84F51]">de Seguros</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
+/** Hero kit Tarjética — CSS + logo oficial (sin JPG generado). */
 function TarjetaHeroPanel() {
-  const [heroReady, setHeroReady] = useState(false);
-  const [heroFailed, setHeroFailed] = useState(false);
-  const showPhoto = heroReady && !heroFailed;
-
   return (
     <>
-      {/* La foto del kit ya incluye fondo azul + semicírculo; no duplicar capas encima */}
-      {!showPhoto && <TarjetaHeroBackdrop />}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: `linear-gradient(180deg, ${BRAND.blueLight} 0%, ${BRAND.blueMid} 42%, ${BRAND.navy} 100%)`,
+        }}
+      />
+      <div
+        className="absolute inset-0 opacity-40"
+        aria-hidden
+        style={{
+          backgroundImage: `radial-gradient(ellipse 70% 55% at 50% 18%, rgba(255,255,255,0.35) 0%, transparent 60%)`,
+        }}
+      />
+      <div
+        className="absolute bottom-0 left-1/2 h-[44%] w-[150%] -translate-x-1/2 rounded-[50%] bg-white shadow-[0_-16px_48px_-20px_rgba(255,255,255,0.5)]"
+        aria-hidden
+      />
 
-      {!heroFailed && (
-        <img
-          src={HERO_IMAGE}
-          alt=""
-          aria-hidden
-          className={`absolute inset-0 h-full w-full object-cover object-[50%_68%] transition-opacity duration-700 sm:object-[50%_58%] lg:object-[50%_50%] ${showPhoto ? 'opacity-100' : 'opacity-0'}`}
-          draggable={false}
-          onLoad={() => setHeroReady(true)}
-          onError={() => setHeroFailed(true)}
-        />
-      )}
+      <div className="absolute inset-0 flex items-center justify-center px-8 pb-[10%] pt-[14%] sm:pb-[8%] lg:pb-[6%]">
+        <div className="relative w-[min(78%,300px)] rotate-[-7deg] rounded-[18px] bg-white px-5 pb-6 pt-5 shadow-[0_32px_64px_-20px_rgba(9,17,51,0.42)] ring-1 ring-white/80">
+          <div
+            className="pointer-events-none absolute right-3 top-3 h-16 w-24 opacity-[0.07]"
+            aria-hidden
+            style={{
+              backgroundImage: `repeating-linear-gradient(-35deg, ${BRAND.navy} 0px, ${BRAND.navy} 1px, transparent 1px, transparent 7px)`,
+            }}
+          />
+          <Nfc size={22} className="text-slate-700" strokeWidth={2} aria-hidden />
+          <img
+            src={LOGO_LA_MUNDIAL}
+            alt="La Mundial de Seguros"
+            className="mx-auto mt-3 w-full max-w-[200px] object-contain sm:max-w-[220px]"
+            draggable={false}
+          />
+        </div>
+      </div>
 
-      {showPhoto && (
-        <div
-          className="absolute inset-0"
-          aria-hidden
-          style={{ background: HERO_PHOTO_VEIL }}
-        />
-      )}
-
-      {(!heroReady || heroFailed) && <TarjetaHeroFallback />}
+      <div
+        className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#050924]/50 to-transparent"
+        aria-hidden
+      />
     </>
   );
 }
