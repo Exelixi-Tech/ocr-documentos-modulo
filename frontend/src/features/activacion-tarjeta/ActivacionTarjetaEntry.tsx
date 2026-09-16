@@ -24,7 +24,14 @@ const BRAND = {
 const HERO_IMAGE = publicAsset('tarjeta/hero-mano-tarjeta.jpg');
 const LOGO_LA_MUNDIAL = publicAsset('logo-lamundial.png');
 
-/** Fondo marca — mesh + semicírculo (kit Tarjética), siempre detrás del hero. */
+/** Velo sobre foto del kit — legibilidad del copy sin alterar el arte de marca. */
+const HERO_PHOTO_VEIL = [
+  'linear-gradient(180deg, rgba(5,9,36,0.72) 0%, rgba(9,17,51,0.18) 38%, rgba(9,17,51,0.08) 58%, rgba(15,26,90,0.35) 100%)',
+  'linear-gradient(115deg, rgba(46,109,191,0.22) 0%, transparent 45%)',
+  'radial-gradient(ellipse 80% 60% at 100% 100%, rgba(232,79,81,0.12) 0%, transparent 55%)',
+].join(', ');
+
+/** Fondo marca — mesh + semicírculo; solo mientras carga la foto o si falla. */
 function TarjetaHeroBackdrop() {
   return (
     <>
@@ -84,32 +91,26 @@ function TarjetaHeroPanel() {
 
   return (
     <>
-      <TarjetaHeroBackdrop />
+      {/* La foto del kit ya incluye fondo azul + semicírculo; no duplicar capas encima */}
+      {!showPhoto && <TarjetaHeroBackdrop />}
 
       {!heroFailed && (
         <img
           src={HERO_IMAGE}
           alt=""
           aria-hidden
-          className={`absolute inset-0 h-full w-full object-cover object-[center_42%] transition-opacity duration-700 ${showPhoto ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 h-full w-full object-cover object-[50%_68%] transition-opacity duration-700 sm:object-[50%_58%] lg:object-[50%_50%] ${showPhoto ? 'opacity-100' : 'opacity-0'}`}
           draggable={false}
           onLoad={() => setHeroReady(true)}
           onError={() => setHeroFailed(true)}
         />
       )}
 
-      {/* Velo sobre la foto — unifica tonos azules y mejora contraste del copy */}
       {showPhoto && (
         <div
           className="absolute inset-0"
           aria-hidden
-          style={{
-            background: `
-              linear-gradient(180deg, rgba(5,9,36,0.72) 0%, rgba(9,17,51,0.18) 38%, rgba(9,17,51,0.08) 58%, rgba(15,26,90,0.35) 100%),
-              linear-gradient(115deg, rgba(46,109,191,0.22) 0%, transparent 45%),
-              radial-gradient(ellipse 80% 60% at 100% 100%, rgba(232,79,81,0.12) 0%, transparent 55%)
-            `,
-          }}
+          style={{ background: HERO_PHOTO_VEIL }}
         />
       )}
 
@@ -278,7 +279,10 @@ export function ActivacionTarjetaEntry() {
         style={{ animation: 'splashTextIn 0.55s ease-out both' }}
       >
         {/* Hero — imagen marca a tamaño completo (panel izquierdo / top móvil) */}
-        <div className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-[100dvh]">
+        <div
+          className="relative min-h-[42vh] overflow-hidden sm:min-h-[44vh] lg:min-h-[100dvh]"
+          style={{ backgroundColor: BRAND.navyDeep }}
+        >
           <TarjetaHeroPanel />
 
           <div className="pointer-events-none relative z-10 flex min-h-[inherit] flex-col justify-between p-6 sm:p-8 lg:p-10">
