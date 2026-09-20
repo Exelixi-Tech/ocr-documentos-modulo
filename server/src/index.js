@@ -21,6 +21,7 @@ const ocrRoutes    = require('./routes/ocr');
 const catalogRoutes = require('./routes/catalog');
 const tarjetaRoutes = require('./routes/activacionTarjeta');
 const nexusAuth    = require('./middleware/nexusAuth');
+const { getNestMonitorAppIdHeader, reportExpressError, reportRuntimeError } = require('./services/monitorReporter');
 
 const app = express();
 
@@ -87,6 +88,7 @@ async function proxyValrep(req, res) {
       headers: {
         'Content-Type': 'application/json',
         ...(req.headers.authorization ? { Authorization: req.headers.authorization } : {}),
+        ...getNestMonitorAppIdHeader(),
       },
       timeout: 15000,
       validateStatus: () => true,
@@ -94,6 +96,12 @@ async function proxyValrep(req, res) {
     res.status(upstream.status).json(upstream.data);
   } catch (err) {
     console.error('[ocr → valrep proxy]', err.message);
+    reportRuntimeError({
+      method: req.method,
+      path: (req.originalUrl || req.url || '/').split('?')[0],
+      statusCode: 502,
+      message: err.message || 'VALREP_PROXY_ERROR',
+    });
     res.status(502).json({ success: false, code: 'VALREP_PROXY_ERROR', message: err.message });
   }
 }
@@ -113,8 +121,9 @@ app.use('/api/tarjeta', tarjetaRoutes);
 // Multi-tenant: todas las rutas /api (excepto /api/health y proxies arriba) requieren nexus_token
 app.use('/api', nexusAuth, ocrRoutes);
 
-app.use((err, _req, res, _next) => {
+app.use((err, req, res, _next) => {
   console.error('[modulo-ocr] error:', err);
+  reportExpressError(err, req);
   res.status(err.status || 500).json({
     success: false, code: err.code || 'INTERNAL', message: err.message,
   });
