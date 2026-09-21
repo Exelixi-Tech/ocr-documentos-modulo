@@ -24,6 +24,9 @@ export function metadataFromTarjetaActivacion(
     nombre_producto:
       tarjeta.nombreProducto
       ?? (raw.nombre_producto != null ? String(raw.nombre_producto) : undefined),
+    ...(tarjeta.nfactura
+      ? { nfactura: String(tarjeta.nfactura).replace(/\D/g, '').slice(0, 16) }
+      : {}),
     ...extras,
   };
 }
