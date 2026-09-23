@@ -1,7 +1,8 @@
 /** Particular/rústico (FARMPA) vs moto (FARMMO) — plan que viene de validate-card. */
 export type TarjetaVehicleKind = 'auto' | 'moto';
 
-const MOTO_HINTS = /\b(MOTOCICL|MOTONETA|CICLOMOTOR|\bMOTO\b|MOTO PARTICULAR)\b/i;
+// MOTOCICL\w* cubre MOTOCICLETA (el \b tras MOTOCICL fallaba y no detectaba motos).
+const MOTO_HINTS = /MOTOCICL\w*|MOTONETA|CICLOMOTOR|\bMOTO\b|MOTO\s+PARTICULAR|SCOOTER/i;
 const AUTO_HINTS = /\b(AUTOMOVIL|AUTOMÓVIL|CAMIONETA|PASEO|RUSTICO|RÚSTICO|SPORT\s*WAGON|STATION\s*WAGON|PICK[\s-]?UP|FURGON|FURGÓN|BUS|CAMION|CAMIÓN|MINIBUS|MICROBUS)\b/i;
 
 function normCode(value?: string | null): string {
