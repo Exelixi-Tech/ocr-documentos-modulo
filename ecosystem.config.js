@@ -30,16 +30,22 @@ module.exports = {
       time: true,
     },
     {
+      // Express-less static + proxy (scripts/serve-prod.js).
+      // No usar `vite preview`: su proxy rompe POST multipart → Apache 502 en upload.
       name: 'ocr-web',
-      cwd: path.join(ROOT, 'frontend'),
-      script: 'node_modules/vite/bin/vite.js',
-      args: 'preview --host --port 5181 --strictPort',
+      cwd: ROOT,
+      script: 'scripts/serve-prod.js',
       instances: 1,
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '256M',
       env_production: {
         NODE_ENV: 'production',
+        PORT: 5181,
+        OCR_API_ORIGIN: 'http://127.0.0.1:4001',
+        FORM_API_ORIGIN: 'http://127.0.0.1:4002',
+        NEXUS_API_ORIGIN: 'http://127.0.0.1:3092',
+        OCR_PROXY_TIMEOUT_MS: '300000',
       },
       out_file:   path.join(ROOT, 'logs', 'ocr-web.out.log'),
       error_file: path.join(ROOT, 'logs', 'ocr-web.err.log'),
