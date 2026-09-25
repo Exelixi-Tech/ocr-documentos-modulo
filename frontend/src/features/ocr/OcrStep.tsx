@@ -164,7 +164,7 @@ const DOCS: DocConfig[] = [
   {
     type: 'cedula_beneficiario',
     label: 'Cédula del beneficiario',
-    description: 'Quien recibe el beneficio',
+    description: 'Opcional · quien recibe el beneficio',
     Icon: IdCard,
     accent: 'from-fuchsia-500 to-rose-500',
   },
@@ -808,8 +808,8 @@ export function OcrStep() {
   }
 
   if (product.id === 'funerario' && !builderProduct) {
-    requiredDocs = ['cedula', 'cedula_titular', 'cedula_beneficiario'];
-    optionalDocs = [];
+    requiredDocs = ['cedula', 'cedula_titular'];
+    optionalDocs = ['cedula_beneficiario'];
   } else if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
