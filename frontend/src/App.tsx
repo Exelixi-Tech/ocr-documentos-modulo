@@ -39,9 +39,9 @@ import type { DocType } from './types';
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 const DOC_LABELS: Record<string, string> = {
-  cedula: 'cédula del tomador',
-  cedula_titular: 'cédula del titular',
-  cedula_beneficiario: 'cédula del beneficiario',
+  cedula: 'cédula o RIF del tomador',
+  cedula_titular: 'cédula o RIF del titular',
+  cedula_beneficiario: 'cédula o RIF del beneficiario',
   licencia: 'licencia',
   certificado: 'certificado',
   pasaporte: 'pasaporte',
