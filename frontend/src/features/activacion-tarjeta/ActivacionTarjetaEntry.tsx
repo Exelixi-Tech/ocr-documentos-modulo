@@ -1,5 +1,5 @@
 ﻿import { useState, type FormEvent } from 'react';
-import { Loader2, Phone, ShieldCheck } from 'lucide-react';
+import { Loader2, Phone } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
@@ -228,7 +228,7 @@ export function ActivacionTarjetaEntry() {
   return (
     <div
       role="dialog"
-      aria-label="Activación de tarjeta RCV"
+      aria-label="Activación de tarjeta"
       className="fixed inset-0 z-[70] flex min-h-[100dvh] flex-col overflow-x-hidden overflow-y-auto"
       style={{ background: PAGE_BG }}
     >
@@ -251,12 +251,8 @@ export function ActivacionTarjetaEntry() {
               Activación de tarjeta
             </h1>
             <p className="mx-auto mt-2 max-w-[19rem] text-sm leading-relaxed text-slate-500">
-              Ingresa el código impreso en el reverso de tu tarjeta RCV.
+              Ingresa el código impreso en el reverso de tu tarjeta.
             </p>
-            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#2E6DBF]/10 px-3.5 py-1.5 text-xs font-bold text-[#1B3E9E]">
-              <ShieldCheck size={14} aria-hidden />
-              Protección vehicular RCV
-            </div>
           </div>
 
           <div className="mt-7 flex items-center gap-4 rounded-2xl border border-slate-100 bg-[#f6f9fd] px-4 py-4 sm:px-5">
