@@ -20,16 +20,18 @@ export function extractPersonFromOcr(ocr?: OcrResult | null): {
 } | null {
   if (!ocr) return null;
 
-  const identificacion = normalizeIdentificacionDigits(ocr.identificacion);
-  const nombre = ocr.nombre ?? '';
-  const apellido = ocr.apellido ?? '';
-
-  if (!identificacion && !nombre && !apellido) return null;
-
+  const rawId = ocr.identificacion || ocr.rif;
+  const identificacion = normalizeIdentificacionDigits(rawId);
   const tipoDoc =
     ocr.tipoDoc
-    ?? inferTipoDocFromRaw(ocr.identificacion)
+    ?? inferTipoDocFromRaw(rawId)
     ?? 'V';
+
+  const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
+  const nombre = ocr.nombre || (isPJ ? (ocr.razonSocial ?? '') : '');
+  const apellido = isPJ ? '' : (ocr.apellido ?? '');
+
+  if (!identificacion && !nombre && !apellido) return null;
 
   return {
     nombre,

@@ -19,6 +19,7 @@ import {
   validateCertificadoForTarjetaPlan,
 } from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
+import { aceptaRifEnCedula, labelConRif } from '../../lib/rif-en-cedula';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import {
@@ -382,6 +383,7 @@ function UploadDocCard({
         tarjetaCplan: tarjeta?.cplan,
         tarjetaCproducto: tarjeta?.cproducto,
         tarjetaNombreProducto: tarjeta?.nombreProducto,
+        aceptaRif: aceptaRifEnCedula(),
       });
 
       setDocState(config.type, { status: 'processing', progress: 100 });
@@ -449,17 +451,20 @@ function UploadDocCard({
       });
 
       if (isCedulaOcrSlot(config.type) && result.ocr && typeof result.ocr === 'object') {
-        const rawId = result.ocr.identificacion as string | undefined;
+        const rawId = (result.ocr.identificacion || result.ocr.rif) as string | undefined;
         const digits = normalizeIdentificacionDigits(rawId);
         const tipoDoc =
           (result.ocr.tipoDoc as string | undefined)
-          || inferTipoDocFromRaw(rawId)
+          || inferTipoDocFromRaw(result.ocr.rif || rawId)
           || (digits ? 'V' : undefined);
+        const isPJ = ['J', 'G', 'C'].includes(String(tipoDoc).toUpperCase());
+        const nombre = result.ocr.nombre || (isPJ ? (result.ocr.razonSocial ?? undefined) : undefined);
         setDocState(config.type, {
           ocr: {
             ...result.ocr,
             identificacion: digits || undefined,
             ...(tipoDoc ? { tipoDoc } : {}),
+            ...(nombre ? { nombre } : {}),
           },
         });
       }
@@ -480,8 +485,8 @@ function UploadDocCard({
         });
       }
 
-      if (config.type === 'cedula' && result.ocr?.tipoDoc) {
-        const tipo = String(result.ocr.tipoDoc).trim().toUpperCase();
+      if (config.type === 'cedula' && (result.ocr?.tipoDoc || result.ocr?.rif)) {
+        const tipo = String(result.ocr.tipoDoc || inferTipoDocFromRaw(result.ocr.rif) || 'V').trim().toUpperCase();
         const { setDiligencia } = useWizardStore.getState();
         const itipo = ['J', 'G', 'C'].includes(tipo) ? 'C' : 'S';
         setDiligencia({ itipoDiligencia: itipo, clasificadoEn: 'ocr' });
@@ -847,11 +852,15 @@ export function OcrStep() {
     });
   }, [product.id, itipoDiligencia, effectiveRequired.join(','), documents, setDiligencia]);
 
+  // Patrimoniales: la cédula acepta RIF de empresa, así que no se muestra el RIF aparte.
+  const rifEnCedula = aceptaRifEnCedula();
   const visibleDocs = sortDocConfigs(
     DOCS.filter(
-      (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
+      (d) => (effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type))
+        && !(rifEnCedula && d.type === 'rif'),
     ).map((d) => ({
       ...d,
+      ...(rifEnCedula && isCedulaOcrSlot(d.type) ? { label: labelConRif(d.label) } : {}),
       optional: effectiveOptional.includes(d.type),
     })),
   );
@@ -868,20 +877,27 @@ export function OcrStep() {
         applyFuneralOcrCedulas();
       }
       const cedula = documents.cedula.ocr;
-      if (cedula?.nombre || cedula?.identificacion) {
+      if (cedula?.nombre || cedula?.razonSocial || cedula?.identificacion || cedula?.rif) {
         // El OCR de Gemini devuelve "Soltero(a)" / "Femenino" pero el catálogo
         // Valrep usa "SOLTERO" / "FEMENINO". matchCatalog hace el puente.
         const sexoOpts = catalogs.sexos.map(s => ({ value: String(s.label), label: s.label }));
         const ecOpts   = catalogs.estadosCivil.map(s => ({ value: String(s.label), label: s.label }));
 
+        const rawId = cedula.identificacion || cedula.rif;
+        const digits = normalizeIdentificacionDigits(rawId);
+        const tipoDoc = cedula.tipoDoc ?? inferTipoDocFromRaw(cedula.rif || rawId) ?? 'V';
+        const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
+        const nombre = cedula.nombre ?? (isPJ ? (cedula.razonSocial ?? '') : '');
+        const apellido = isPJ ? '' : (cedula.apellido ?? '');
+
         setTomador({
-          nombre: cedula.nombre ?? '',
-          apellido: cedula.apellido ?? '',
-          identificacion: normalizeIdentificacionDigits(cedula.identificacion),
-          tipoDoc: cedula.tipoDoc ?? inferTipoDocFromRaw(cedula.identificacion) ?? 'V',
+          nombre,
+          apellido,
+          identificacion: digits,
+          tipoDoc,
           fechaNac: cedula.fechaNacimiento ?? '',
-          sexo: matchCatalog(cedula.sexo, sexoOpts),
-          estadoCivil: matchCatalog(cedula.estadoCivil, ecOpts),
+          sexo: isPJ ? '' : matchCatalog(cedula.sexo, sexoOpts),
+          estadoCivil: isPJ ? '' : matchCatalog(cedula.estadoCivil, ecOpts),
         });
       }
       // El vehículo sólo aplica a productos con vehículo (RCV). Funerario no
@@ -1023,20 +1039,21 @@ export function OcrStep() {
 
       {/* OCR success banner */}
       {allRequiredDone && (() => {
-        // ── Datos tomador (cédula/licencia) ──────────────────────────────────
+        // ── Datos tomador (cédula/licencia/RIF) ─────────────────────────────
         const fromCert = hasVehicle
           ? extractTomadorFromCertificado(documents.certificado?.ocr)
           : null;
-        const nombre = documents.cedula.ocr?.nombre || tomador.nombre || fromCert?.nombre || '';
-        const apellido = documents.cedula.ocr?.apellido || tomador.apellido || fromCert?.apellido || '';
-        const rawId = documents.cedula.ocr?.identificacion || tomador.identificacion || fromCert?.identificacion;
+        const rawId = documents.cedula.ocr?.identificacion || documents.cedula.ocr?.rif || tomador.identificacion || fromCert?.identificacion;
         const identificacion = normalizeIdentificacionDigits(rawId);
         const tipoDoc =
           documents.cedula.ocr?.tipoDoc
           || tomador.tipoDoc
           || fromCert?.tipoDoc
-          || inferTipoDocFromRaw(rawId)
+          || inferTipoDocFromRaw(documents.cedula.ocr?.rif || rawId)
           || (identificacion ? 'V' : '');
+        const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
+        const nombre = documents.cedula.ocr?.nombre || (isPJ ? documents.cedula.ocr?.razonSocial : '') || tomador.nombre || fromCert?.nombre || '';
+        const apellido = isPJ ? '' : (documents.cedula.ocr?.apellido || tomador.apellido || fromCert?.apellido || '');
         const documento = formatDocumentoLabel(identificacion, tipoDoc);
         const placa = documents.certificado?.ocr?.placa ?? '';
 
@@ -1051,7 +1068,7 @@ export function OcrStep() {
         const multiPersonas = titularFromCarnet || hasDriver;
         const personasCount = 1 + (titularFromCarnet ? 1 : 0) + (hasDriver ? 1 : 0);
         const bannerHint = titularFromCarnet && hasDriver
-          ? 'Cédula, carnet y licencia son de personas distintas. Se separan tomador, titular y conductor habitual.'
+          ? 'Cédula/RIF, carnet y licencia son de personas distintas. Se separan tomador, titular y conductor habitual.'
           : titularFromCarnet
             ? 'El carnet del vehículo pertenece a una persona distinta. Se separan tomador y titular.'
             : hasDriver
@@ -1109,11 +1126,11 @@ export function OcrStep() {
                   <div className="rounded-xl bg-white/10 border border-white/20 p-3">
                     <p className="text-[0.65rem] font-black uppercase tracking-widest text-indigo-200 mb-2.5 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 inline-block" />
-                      Tomador · Cédula
+                      Tomador · Cédula / RIF
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      <Chip label="Nombre" value={nombre} />
-                      <Chip label="Apellido" value={apellido} />
+                      <Chip label={isPJ ? "Razón Social" : "Nombre"} value={nombre} />
+                      {!isPJ && <Chip label="Apellido" value={apellido} />}
                       <Chip label="Documento" value={documento} />
                       {hasVehicle && !titularFromCarnet && !hasDriver && <Chip label="Placa" value={placa} />}
                     </div>

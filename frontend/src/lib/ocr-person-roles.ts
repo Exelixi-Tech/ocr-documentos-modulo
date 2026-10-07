@@ -35,7 +35,7 @@ export function resolveOcrPersonRoles(
   certificado?: OcrResult | null,
   licencia?: OcrResult | null,
 ): OcrPersonRolesResult {
-  const cedulaId = normalizeIdentificacionDigits(cedula?.identificacion);
+  const cedulaId = normalizeIdentificacionDigits(cedula?.identificacion || cedula?.rif);
   const carnetId = resolveCarnetId(certificado);
   const licenciaId = normalizeIdentificacionDigits(licencia?.identificacion);
 
@@ -58,7 +58,7 @@ export function resolveOcrPersonRoles(
   }
 
   const fromLicencia = extractPersonFromOcr(licencia);
-  const cedulaName = normalizePersonName(cedula?.nombre, cedula?.apellido);
+  const cedulaName = normalizePersonName(cedula?.nombre || cedula?.razonSocial, cedula?.apellido);
   const titularCarnet = certificado ? extractTomadorFromCertificado(certificado) : null;
   const carnetName = titularCarnet
     ? normalizePersonName(titularCarnet.nombre, titularCarnet.apellido)
