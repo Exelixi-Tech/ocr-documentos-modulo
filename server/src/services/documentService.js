@@ -199,6 +199,23 @@ async function runOcr(file, docType, tarjetaHints, opts = {}) {
         }
       }
 
+      if (docType === 'factura' && result.fields) {
+        const { validateFacturaItemLaMundial } = require('../lib/facturaLaMundial');
+        const facturaCheck = validateFacturaItemLaMundial(result.fields);
+        if (!facturaCheck.ok) {
+          console.warn(
+            `[OCR] factura sin item La Mundial: nfactura=${result.fields.nfactura || ''} ` +
+            `rif=${result.fields.rifComercio || ''} model=${result.meta.model}`,
+          );
+          return {
+            provider: 'gemini',
+            fields: null,
+            meta: result.meta,
+            facturaInvalida: { message: facturaCheck.message },
+          };
+        }
+      }
+
       // Limpiamos el campo interno de validacion antes de devolver al frontend.
       if (result.fields && 'documentoTipo' in result.fields) {
         delete result.fields.documentoTipo;

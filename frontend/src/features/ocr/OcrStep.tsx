@@ -5,7 +5,7 @@ import {
   MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
-import { uploadDocument, DocTypeMismatchError, PlanVehicleMismatchError } from '../../lib/api';
+import { uploadDocument, DocTypeMismatchError, PlanVehicleMismatchError, FacturaInvalidaError } from '../../lib/api';
 import { validateBill } from '../activacion-tarjeta/api';
 import { appendFacturaIfNeeded } from '../activacion-tarjeta/docs';
 import {
@@ -534,6 +534,16 @@ function UploadDocCard({
 
       if (err instanceof PlanVehicleMismatchError) {
         toast.warning('Carnet no compatible con la tarjeta', err.message, 8000);
+        setDocState(config.type, {
+          status: 'error',
+          progress: 0,
+          error: err.message,
+        });
+        return;
+      }
+
+      if (err instanceof FacturaInvalidaError) {
+        toast.warning('Factura no válida', err.message, 8000);
         setDocState(config.type, {
           status: 'error',
           progress: 0,

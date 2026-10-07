@@ -41,6 +41,14 @@ export class PlanVehicleMismatchError extends Error {
   }
 }
 
+/** Factura sin ítem de La Mundial (tarjeta/póliza): no sirve para activar. */
+export class FacturaInvalidaError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FacturaInvalidaError';
+  }
+}
+
 export class DocTypeMismatchError extends Error {
   expected: DocType;
   detected: string;
@@ -129,6 +137,10 @@ export async function uploadDocument(
 
     if (axErr.response?.status === 422 && data?.code === 'PLAN_VEHICLE_MISMATCH') {
       throw new PlanVehicleMismatchError(data.message ?? 'El carnet no corresponde al plan de la tarjeta.');
+    }
+
+    if (axErr.response?.status === 422 && data?.code === 'FACTURA_SIN_ITEM_LA_MUNDIAL') {
+      throw new FacturaInvalidaError(data.message ?? 'La factura no incluye un producto de La Mundial.');
     }
 
     throw err;

@@ -870,6 +870,13 @@ const SCHEMAS = {
         type: Type.STRING,
         description: 'RIF del comercio emisor (ej. J-000202001).',
       },
+      itemLaMundial: {
+        type: Type.STRING,
+        description:
+          'Texto LITERAL de la linea de item vendido que sea un producto de La Mundial de Seguros ' +
+          '(ej. "Tarjeta La Mundial De Segur (E)", "POLIZA DE GASTOS FUNERARIOS (E)"). ' +
+          'Cadena vacia si ningun item es de La Mundial, una poliza o un seguro. No inventes.',
+      },
     },
     required: ['documentoTipo'],
   },
@@ -978,7 +985,8 @@ const PROMPTS = {
     'nfactura = el numero alineado con "FACTURA" o "FACTURA:", con ceros a la izquierda. ' +
     'Ejemplos: 00162341, 00169063, 00113430. Solo digitos. ' +
     'NO uses el numero de Ticket, Tienda, Caja, ni el serial del pie (T4XX...). ' +
-    'Puede aparecer un item "Tarjeta La Mundial" o "Poliza de Gastos Funerarios"; no lo copies como nfactura.',
+    'Puede aparecer un item "Tarjeta La Mundial" o "Poliza de Gastos Funerarios"; no lo copies como nfactura. ' +
+    'itemLaMundial = copia literal de esa linea de item; si no hay ningun item de La Mundial/poliza/seguro, deja itemLaMundial vacio.',
 };
 
 const SYSTEM_INSTRUCTION =
