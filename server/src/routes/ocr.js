@@ -221,6 +221,17 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
       });
     }
 
+    if (ocrResult.facturaInvalida) {
+      await discardUpload(normalized.filePath, req.file.path);
+      return res.status(422).json({
+        success: false,
+        code: 'FACTURA_SIN_ITEM_LA_MUNDIAL',
+        message: ocrResult.facturaInvalida.message,
+        ocrProvider: ocrResult.provider,
+        ...(ocrResult.meta ? { ocrMeta: ocrResult.meta } : {}),
+      });
+    }
+
     if (ocrResult.ocrFailed) {
       await discardUpload(normalized.filePath, req.file.path);
       return res.status(503).json({
