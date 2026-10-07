@@ -43,7 +43,7 @@ export const PRODUCTS: Record<ProductId, ProductConfig> = {
     label: 'Funerario',
     fullLabel: 'Seguro Funerario',
     cramo: 9,
-    docs: { required: ['cedula', 'cedula_titular', 'cedula_beneficiario'], optional: [] },
+    docs: { required: ['cedula', 'cedula_titular'], optional: ['cedula_beneficiario'] },
     hasVehicle: false,
   },
   patrimoniales: {

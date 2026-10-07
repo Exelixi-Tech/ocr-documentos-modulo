@@ -220,8 +220,8 @@ export default function App() {
     }
 
     if (product.id === 'funerario' && !builderProduct) {
-      requiredDocs = ['cedula', 'cedula_titular', 'cedula_beneficiario'];
-      optionalDocs = [];
+      requiredDocs = ['cedula', 'cedula_titular'];
+      optionalDocs = ['cedula_beneficiario'];
     }
 
     const binacional = adjustDocsForBinacionalCarnet(
