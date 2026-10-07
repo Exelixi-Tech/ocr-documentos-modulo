@@ -213,9 +213,13 @@ function isColombianIdentityDoc(fields) {
 
 function normalizeCedulaFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
-  const raw = fields.identificacion ?? fields.cedula ?? fields.numeroDocumento ?? fields.numero;
+  const raw = fields.identificacion ?? fields.rif ?? fields.cedula ?? fields.numeroDocumento ?? fields.numero;
   const digits = normalizeIdentificacionDigits(raw);
   if (digits) fields.identificacion = digits;
+
+  if (fields.rif) {
+    fields.rif = String(fields.rif).trim().toUpperCase();
+  }
 
   // Detectar si es documento colombiano ANTES de normalizar tipoDoc
   const esColombia = isColombianIdentityDoc(fields);
@@ -225,11 +229,10 @@ function normalizeCedulaFields(fields) {
     fields.tipoDoc = 'E';
     fields.paisEmisor = 'CO';
   } else {
-    // Documento venezolano (o desconocido): respetar lo que Gemini detectó.
-    // Solo intentar inferir del prefijo raw si Gemini no puso nada.
-    if (!fields.tipoDoc && raw) {
-      const m = String(raw).trim().toUpperCase().match(/^([VEJP])[-\s.]*\d/);
-      if (m) fields.tipoDoc = m[1] === 'P' ? 'P' : m[1];
+    // Documento venezolano / RIF / Pasaporte:
+    if (!fields.tipoDoc && (fields.rif || raw)) {
+      const m = String(fields.rif || raw).trim().toUpperCase().match(/^([VEJGCP])[-\s.]*\d/);
+      if (m) fields.tipoDoc = m[1];
     }
     // Si Gemini puso 'E' pero NO es Colombia → el usuario es extranjero residente en VE (válido),
     // lo dejamos como E. Si no hay tipoDoc y hay dígitos → V por defecto.
@@ -237,6 +240,12 @@ function normalizeCedulaFields(fields) {
       fields.tipoDoc = 'V';
     }
   }
+
+  // Si es persona jurídica o RIF con razón social sin nombre separado:
+  if (fields.razonSocial && !fields.nombre) {
+    fields.nombre = String(fields.razonSocial).trim();
+  }
+
   delete fields.paisDocumento;
   delete fields.documentoEmisor;
   delete fields.tituloDocumento;
@@ -527,6 +536,15 @@ const CRITICAL_FIELDS = {
  * Devuelve { ok, missing[] } para diagnóstico.
  */
 function validateCriticalFields(docType, fields) {
+  // Solo cédula o RIF (patrimoniales): empresa válida con RIF + razón social, sin apellido.
+  if (docType === 'cedula_rif') {
+    const hasId = Boolean(fields?.identificacion || fields?.rif);
+    const hasName = Boolean(fields?.nombre || fields?.apellido || fields?.razonSocial);
+    const missing = [];
+    if (!hasId) missing.push('identificacion');
+    if (!hasName) missing.push('nombre');
+    return { ok: missing.length === 0, missing };
+  }
   const required = CRITICAL_FIELDS[docType] || [];
   const missing = [];
   for (const f of required) {
@@ -895,6 +913,25 @@ const PROMPTS = {
     'IGNORA F. EXPEDICION y F. VENCIMIENTO. NUNCA inventes el ano (p. ej. 1945). ' +
     'El campo identificacion debe contener solo digitos. ' +
     'Para estadoCivil venezolano: S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)".',
+  cedula_rif:
+    VALIDATION_PREAMBLE +
+    'Tipo solicitado: DOCUMENTO DE IDENTIDAD PERSONAL O RIF (Cédula de Venezuela o Colombia, Pasaporte, o Registro Único de Información Fiscal RIF del SENIAT de persona natural o jurídica). ' +
+    '=== Si es Cédula de Identidad (Venezuela o Colombia) === ' +
+    'Venezuela: Header "CEDULA DE IDENTIDAD". tipoDoc="V" si VENEZOLANO, "E" si EXTRANJERO. ' +
+    'Colombia: Header "REPUBLICA DE COLOMBIA" + "CEDULA DE CIUDADANIA". paisEmisor="CO", tipoDoc="E". ' +
+    'apellido = campo APELLIDOS; nombre = campo NOMBRES; identificacion = NUMERO (solo digitos). ' +
+    'fechaNacimiento = UNICAMENTE F. NACIMIENTO (VE: DD/MM/YYYY → YYYY-MM-DD). ' +
+    'Ejemplo: 08/10/1997 es 1997-10-08 (8 de octubre de 1997), NO 1997-08-10 ni otro ano. ' +
+    'IGNORA F. EXPEDICION y F. VENCIMIENTO. NUNCA inventes el ano (p. ej. 1945). ' +
+    'El campo identificacion debe contener solo digitos. ' +
+    'Para estadoCivil venezolano: S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)". ' +
+    '=== Si es RIF (SENIAT Venezuela) === ' +
+    'Header "REGISTRO UNICO DE INFORMACION FISCAL" (SENIAT). ' +
+    'rif = numero de RIF completo con letra y guiones (ej. J-12345678-9, V-12345678-0, G-20001234-5, E-81234567-9). ' +
+    'identificacion = solo los digitos del RIF (sin letra ni guiones). ' +
+    'tipoDoc = primera letra del RIF ("J", "V", "G", "E" o "C"). ' +
+    'Si es persona jurídica o empresa: razonSocial = nombre de la empresa / razón social; nombre = razonSocial; apellido = null; fechaNacimiento = null; sexo = null; estadoCivil = null. ' +
+    'Si es persona natural: nombre y apellido del contribuyente si aparecen. NUNCA inventes datos.',
   licencia:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: LICENCIA DE CONDUCIR (Venezuela INTT o Colombia — flujo RCV extranjero). ' +
@@ -1048,8 +1085,7 @@ async function callGeminiWithRetry(model, docType, base64, mimetype, schemaKey =
  */
 async function extract(filePath, mimetype, docType, opts = {}) {
   // Cédula o RIF en el mismo slot solo si el producto lo pide (patrimoniales). RCV/funerario: prompt original.
-  // Cédula y RIF unificados en el prompt de cédula (main, PR #9): mismo esquema para todos los productos.
-  const schemaKey = docType;
+  const schemaKey = docType === 'cedula' && opts.aceptaRif ? 'cedula_rif' : docType;
   if (!SCHEMAS[docType]) {
     throw new Error(`Tipo de documento no soportado por Gemini: ${docType}`);
   }

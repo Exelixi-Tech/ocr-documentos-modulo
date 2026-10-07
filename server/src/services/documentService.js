@@ -22,17 +22,19 @@ const DOC_TYPE_LABELS = {
 };
 
 /**
- * Acepta documentos colombianos en slots cedula/licencia (RCV extranjero)
+ * Acepta documentos de identidad / RIF o documentos colombianos en slots cedula/licencia (RCV extranjero)
  * cuando Gemini devuelve desconocido pero extrajo campos utiles.
  */
 function docTypeMatchesSlot(expected, detected, fields, aceptaRif = false) {
   if (!detected || detected === expected) return true;
+  // Cédula o RIF en el mismo slot solo en productos que lo aceptan (patrimoniales).
+  if (aceptaRif && expected === 'cedula' && detected === 'rif') return true;
   if (detected !== 'desconocido') return false;
   if (!fields || typeof fields !== 'object') return false;
 
   if (expected === 'cedula') {
-    const digits = String(fields.identificacion ?? '').replace(/\D/g, '');
-    const hasName = Boolean(fields.nombre || fields.apellido);
+    const digits = String(fields.identificacion ?? fields.rif ?? '').replace(/\D/g, '');
+    const hasName = Boolean(fields.nombre || fields.apellido || fields.razonSocial);
     return digits.length >= 6 && hasName;
   }
 
