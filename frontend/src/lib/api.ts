@@ -76,6 +76,8 @@ export async function uploadDocument(
     tarjetaCplan?: string | null;
     tarjetaCproducto?: string | null;
     tarjetaNombreProducto?: string | null;
+    /** Producto acepta RIF de empresa en el slot de cédula (patrimoniales). */
+    aceptaRif?: boolean;
   },
 ): Promise<UploadResponse> {
   const form = new FormData();
@@ -87,6 +89,7 @@ export async function uploadDocument(
   if (extras?.tarjetaCplan) form.append('tarjetaCplan', extras.tarjetaCplan);
   if (extras?.tarjetaCproducto) form.append('tarjetaCproducto', extras.tarjetaCproducto);
   if (extras?.tarjetaNombreProducto) form.append('tarjetaNombreProducto', extras.tarjetaNombreProducto);
+  if (extras?.aceptaRif) form.append('aceptaRif', '1');
 
   try {
     const response = await api.post<UploadResponse>('/documents/upload', form, {
