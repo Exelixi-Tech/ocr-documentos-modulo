@@ -35,7 +35,7 @@ export const PRODUCTS: Record<ProductId, ProductConfig> = {
     label: 'RCV',
     fullLabel: 'Suscripción RCV',
     cramo: 18,
-    docs: { required: ['cedula', 'licencia', 'certificado'], optional: ['rif'] },
+    docs: { required: ['cedula', 'licencia', 'certificado'], optional: [] },
     hasVehicle: true,
   },
   funerario: {

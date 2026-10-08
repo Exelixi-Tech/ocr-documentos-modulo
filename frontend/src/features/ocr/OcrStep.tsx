@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Upload, CheckCircle2, AlertCircle, RotateCcw, Eye,
-  IdCard, Car, FileText, Building2, Sparkles, ScanLine,
+  IdCard, Car, FileText, Sparkles, ScanLine,
   MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
@@ -34,6 +34,9 @@ import {
   formatDocumentoLabel,
   inferTipoDocFromRaw,
   normalizeIdentificacionDigits,
+  sanitizeOcrString,
+  validateCedulaOcr,
+  isDocOcrDataValid,
 } from '../../lib/identificacion';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
@@ -144,21 +147,21 @@ function HiddenFileInputs({
 const DOCS: DocConfig[] = [
   {
     type: 'cedula',
-    label: 'Cédula del tomador',
-    description: 'Quien paga la póliza',
+    label: 'Cédula o RIF del tomador',
+    description: 'Quien paga la póliza (persona o empresa)',
     Icon: IdCard,
     accent: 'from-indigo-500 to-violet-500',
   },
   {
     type: 'cedula_titular',
-    label: 'Cédula del titular',
-    description: 'Persona asegurada (funerario)',
+    label: 'Cédula o RIF del titular',
+    description: 'Persona o empresa asegurada',
     Icon: IdCard,
     accent: 'from-violet-500 to-fuchsia-500',
   },
   {
     type: 'cedula_beneficiario',
-    label: 'Cédula del beneficiario',
+    label: 'Cédula o RIF del beneficiario',
     description: 'Opcional · quien recibe el beneficio',
     Icon: IdCard,
     accent: 'from-fuchsia-500 to-rose-500',
@@ -186,14 +189,6 @@ const DOCS: DocConfig[] = [
     accent: 'from-emerald-500 to-teal-500',
   },
   {
-    type: 'rif',
-    label: 'RIF',
-    description: 'Opcional · empresas',
-    Icon: Building2,
-    optional: true,
-    accent: 'from-slate-400 to-slate-500',
-  },
-  {
     type: 'factura',
     label: 'Factura fiscal',
     description: 'Ticket de farmacia · número FACTURA',
@@ -211,7 +206,6 @@ const DOC_DISPLAY_ORDER: DocType[] = [
   'certificado',
   'factura',
   'pasaporte',
-  'rif',
 ];
 
 function sortDocConfigs(docs: DocConfig[]): DocConfig[] {
@@ -397,6 +391,42 @@ function UploadDocCard({
         return;
       }
 
+      // Validar si la cédula/RIF devolvió datos nulos o vacíos
+      if (isCedulaOcrSlot(config.type) || config.type === 'rif') {
+        const check = validateCedulaOcr(result.ocr as Record<string, unknown> | undefined);
+        if (!check.valid) {
+          toast.error(
+            `No pudimos leer los datos de "${config.label}"`,
+            'Los datos del documento (cédula o nombre) vinieron vacíos o nulos. Por favor sube una imagen más nítida o legible.',
+            7000,
+          );
+          setDocState(config.type, {
+            status: 'error',
+            progress: 0,
+            error: 'No se detectaron datos válidos (cédula o nombre no legibles). Sube una imagen más clara.',
+          });
+          return;
+        }
+      }
+
+      if (config.type === 'certificado') {
+        const certOcr = (result.ocr || {}) as Record<string, unknown>;
+        const placa = sanitizeOcrString(certOcr.placa);
+        if (!placa) {
+          toast.error(
+            `No pudimos leer la placa de "${config.label}"`,
+            'No se detectó la placa del vehículo. Sube una imagen más clara.',
+            7000,
+          );
+          setDocState(config.type, {
+            status: 'error',
+            progress: 0,
+            error: 'No se detectó la placa del vehículo. Sube una imagen más clara.',
+          });
+          return;
+        }
+      }
+
       if (config.type === 'certificado' && tarjeta) {
         const planKind = resolveTarjetaPlanVehicleKind(tarjeta);
         if (planKind) {
@@ -442,26 +472,36 @@ function UploadDocCard({
       });
 
       if (isCedulaOcrSlot(config.type) && result.ocr && typeof result.ocr === 'object') {
-        const rawId = result.ocr.identificacion as string | undefined;
+        const rawId = sanitizeOcrString(result.ocr.identificacion || result.ocr.rif);
         const digits = normalizeIdentificacionDigits(rawId);
+        const rawTipo = sanitizeOcrString(result.ocr.tipoDoc);
         const tipoDoc =
-          (result.ocr.tipoDoc as string | undefined)
-          || inferTipoDocFromRaw(rawId)
+          rawTipo
+          || inferTipoDocFromRaw(result.ocr.rif || rawId)
           || (digits ? 'V' : undefined);
+        const isPJ = ['J', 'G', 'C'].includes(String(tipoDoc).toUpperCase());
+        const rawNombre = sanitizeOcrString(result.ocr.nombre);
+        const rawRazon = sanitizeOcrString(result.ocr.razonSocial);
+        const rawApellido = sanitizeOcrString(result.ocr.apellido);
+        const nombre = rawNombre || (isPJ ? (rawRazon ?? undefined) : undefined);
+        const apellido = isPJ ? undefined : rawApellido;
         setDocState(config.type, {
           ocr: {
             ...result.ocr,
             identificacion: digits || undefined,
             ...(tipoDoc ? { tipoDoc } : {}),
+            ...(nombre ? { nombre } : {}),
+            ...(apellido ? { apellido } : {}),
           },
         });
       }
 
       if (config.type === 'licencia' && result.ocr && typeof result.ocr === 'object') {
-        const rawId = result.ocr.identificacion as string | undefined;
+        const rawId = sanitizeOcrString(result.ocr.identificacion);
         const digits = normalizeIdentificacionDigits(rawId);
+        const rawTipo = sanitizeOcrString(result.ocr.tipoDoc);
         const tipoDoc =
-          (result.ocr.tipoDoc as string | undefined)
+          rawTipo
           || inferTipoDocFromRaw(rawId)
           || (digits ? 'V' : undefined);
         setDocState(config.type, {
@@ -473,8 +513,8 @@ function UploadDocCard({
         });
       }
 
-      if (config.type === 'cedula' && result.ocr?.tipoDoc) {
-        const tipo = String(result.ocr.tipoDoc).trim().toUpperCase();
+      if (config.type === 'cedula' && (result.ocr?.tipoDoc || result.ocr?.rif)) {
+        const tipo = String(result.ocr.tipoDoc || inferTipoDocFromRaw(result.ocr.rif) || 'V').trim().toUpperCase();
         const { setDiligencia } = useWizardStore.getState();
         const itipo = ['J', 'G', 'C'].includes(tipo) ? 'C' : 'S';
         setDiligencia({ itipoDiligencia: itipo, clasificadoEn: 'ocr' });
@@ -850,7 +890,7 @@ export function OcrStep() {
   const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
   const allRequiredDone =
     effectiveRequired.length > 0
-    && effectiveRequired.every((d) => documents[d]?.status === 'done');
+    && effectiveRequired.every((d) => isDocOcrDataValid(d, documents[d]));
 
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
@@ -858,20 +898,27 @@ export function OcrStep() {
         applyFuneralOcrCedulas();
       }
       const cedula = documents.cedula.ocr;
-      if (cedula?.nombre || cedula?.identificacion) {
+      if (cedula?.nombre || cedula?.razonSocial || cedula?.identificacion || cedula?.rif) {
         // El OCR de Gemini devuelve "Soltero(a)" / "Femenino" pero el catálogo
         // Valrep usa "SOLTERO" / "FEMENINO". matchCatalog hace el puente.
         const sexoOpts = catalogs.sexos.map(s => ({ value: String(s.label), label: s.label }));
         const ecOpts   = catalogs.estadosCivil.map(s => ({ value: String(s.label), label: s.label }));
 
+        const rawId = cedula.identificacion || cedula.rif;
+        const digits = normalizeIdentificacionDigits(rawId);
+        const tipoDoc = cedula.tipoDoc ?? inferTipoDocFromRaw(cedula.rif || rawId) ?? 'V';
+        const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
+        const nombre = cedula.nombre ?? (isPJ ? (cedula.razonSocial ?? '') : '');
+        const apellido = isPJ ? '' : (cedula.apellido ?? '');
+
         setTomador({
-          nombre: cedula.nombre ?? '',
-          apellido: cedula.apellido ?? '',
-          identificacion: normalizeIdentificacionDigits(cedula.identificacion),
-          tipoDoc: cedula.tipoDoc ?? inferTipoDocFromRaw(cedula.identificacion) ?? 'V',
+          nombre,
+          apellido,
+          identificacion: digits,
+          tipoDoc,
           fechaNac: cedula.fechaNacimiento ?? '',
-          sexo: matchCatalog(cedula.sexo, sexoOpts),
-          estadoCivil: matchCatalog(cedula.estadoCivil, ecOpts),
+          sexo: isPJ ? '' : matchCatalog(cedula.sexo, sexoOpts),
+          estadoCivil: isPJ ? '' : matchCatalog(cedula.estadoCivil, ecOpts),
         });
       }
       // El vehículo sólo aplica a productos con vehículo (RCV). Funerario no
@@ -954,7 +1001,7 @@ export function OcrStep() {
     if (updates.sexo || updates.estadoCivil) setTomador(updates);
   }, [catalogs.loading, catalogs.sexos, catalogs.estadosCivil, tomador.sexo, tomador.estadoCivil, setTomador]);
 
-  const completedCount = effectiveRequired.filter((d) => documents[d]?.status === 'done').length;
+  const completedCount = effectiveRequired.filter((d) => isDocOcrDataValid(d, documents[d])).length;
   const completionPct =
     effectiveRequired.length > 0
       ? (completedCount / effectiveRequired.length) * 100
@@ -1013,20 +1060,21 @@ export function OcrStep() {
 
       {/* OCR success banner */}
       {allRequiredDone && (() => {
-        // ── Datos tomador (cédula/licencia) ──────────────────────────────────
+        // ── Datos tomador (cédula/licencia/RIF) ─────────────────────────────
         const fromCert = hasVehicle
           ? extractTomadorFromCertificado(documents.certificado?.ocr)
           : null;
-        const nombre = documents.cedula.ocr?.nombre || tomador.nombre || fromCert?.nombre || '';
-        const apellido = documents.cedula.ocr?.apellido || tomador.apellido || fromCert?.apellido || '';
-        const rawId = documents.cedula.ocr?.identificacion || tomador.identificacion || fromCert?.identificacion;
+        const rawId = documents.cedula.ocr?.identificacion || documents.cedula.ocr?.rif || tomador.identificacion || fromCert?.identificacion;
         const identificacion = normalizeIdentificacionDigits(rawId);
         const tipoDoc =
           documents.cedula.ocr?.tipoDoc
           || tomador.tipoDoc
           || fromCert?.tipoDoc
-          || inferTipoDocFromRaw(rawId)
+          || inferTipoDocFromRaw(documents.cedula.ocr?.rif || rawId)
           || (identificacion ? 'V' : '');
+        const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
+        const nombre = documents.cedula.ocr?.nombre || (isPJ ? documents.cedula.ocr?.razonSocial : '') || tomador.nombre || fromCert?.nombre || '';
+        const apellido = isPJ ? '' : (documents.cedula.ocr?.apellido || tomador.apellido || fromCert?.apellido || '');
         const documento = formatDocumentoLabel(identificacion, tipoDoc);
         const placa = documents.certificado?.ocr?.placa ?? '';
 
@@ -1041,7 +1089,7 @@ export function OcrStep() {
         const multiPersonas = titularFromCarnet || hasDriver;
         const personasCount = 1 + (titularFromCarnet ? 1 : 0) + (hasDriver ? 1 : 0);
         const bannerHint = titularFromCarnet && hasDriver
-          ? 'Cédula, carnet y licencia son de personas distintas. Se separan tomador, titular y conductor habitual.'
+          ? 'Cédula/RIF, carnet y licencia son de personas distintas. Se separan tomador, titular y conductor habitual.'
           : titularFromCarnet
             ? 'El carnet del vehículo pertenece a una persona distinta. Se separan tomador y titular.'
             : hasDriver
@@ -1051,18 +1099,21 @@ export function OcrStep() {
         // ── Chip genérico ────────────────────────────────────────────────────
         const Chip = ({
           label, value, color = 'white',
-        }: { label: string; value?: string; color?: 'white' | 'amber' }) => value ? (
-          <div className={
-            `rounded-xl p-3 border animate-fade-in ${
-              color === 'amber'
-                ? 'bg-amber-400/20 border-amber-300/30'
-                : 'bg-white/12 backdrop-blur-sm border-white/15'
-            }`
-          }>
-            <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
-            <p className="text-sm font-bold text-white truncate font-mono">{value}</p>
-          </div>
-        ) : null;
+        }: { label: string; value?: string | null; color?: 'white' | 'amber' }) => {
+          const cleanValue = sanitizeOcrString(value);
+          return cleanValue ? (
+            <div className={
+              `rounded-xl p-3 border animate-fade-in ${
+                color === 'amber'
+                  ? 'bg-amber-400/20 border-amber-300/30'
+                  : 'bg-white/12 backdrop-blur-sm border-white/15'
+              }`
+            }>
+              <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
+              <p className="text-sm font-bold text-white truncate font-mono">{cleanValue}</p>
+            </div>
+          ) : null;
+        };
 
         return (
           <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">
@@ -1099,11 +1150,11 @@ export function OcrStep() {
                   <div className="rounded-xl bg-white/10 border border-white/20 p-3">
                     <p className="text-[0.65rem] font-black uppercase tracking-widest text-indigo-200 mb-2.5 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-300 inline-block" />
-                      Tomador · Cédula
+                      Tomador · Cédula / RIF
                     </p>
                     <div className="grid grid-cols-2 gap-2">
-                      <Chip label="Nombre" value={nombre} />
-                      <Chip label="Apellido" value={apellido} />
+                      <Chip label={isPJ ? "Razón Social" : "Nombre"} value={nombre} />
+                      {!isPJ && <Chip label="Apellido" value={apellido} />}
                       <Chip label="Documento" value={documento} />
                       {hasVehicle && !titularFromCarnet && !hasDriver && <Chip label="Placa" value={placa} />}
                     </div>

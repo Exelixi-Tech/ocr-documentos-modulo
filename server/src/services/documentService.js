@@ -12,7 +12,7 @@
 const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura'];
 
 const DOC_TYPE_LABELS = {
-  cedula: 'Cedula de Identidad',
+  cedula: 'Cedula de Identidad o RIF',
   licencia: 'Licencia de Conducir',
   certificado: 'Certificado de Circulacion',
   rif: 'Registro Unico de Informacion Fiscal (RIF)',
@@ -22,17 +22,20 @@ const DOC_TYPE_LABELS = {
 };
 
 /**
- * Acepta documentos colombianos en slots cedula/licencia (RCV extranjero)
+ * Acepta documentos de identidad / RIF o documentos colombianos en slots cedula/licencia (RCV extranjero)
  * cuando Gemini devuelve desconocido pero extrajo campos utiles.
  */
 function docTypeMatchesSlot(expected, detected, fields) {
   if (!detected || detected === expected) return true;
+  // Cédula y RIF están unificados en el mismo slot de identidad
+  if (expected === 'cedula' && detected === 'rif') return true;
+  if (expected === 'rif' && detected === 'cedula') return true;
   if (detected !== 'desconocido') return false;
   if (!fields || typeof fields !== 'object') return false;
 
-  if (expected === 'cedula') {
-    const digits = String(fields.identificacion ?? '').replace(/\D/g, '');
-    const hasName = Boolean(fields.nombre || fields.apellido);
+  if (expected === 'cedula' || expected === 'rif') {
+    const digits = String(fields.identificacion ?? fields.rif ?? '').replace(/\D/g, '');
+    const hasName = Boolean(fields.nombre || fields.apellido || fields.razonSocial);
     return digits.length >= 6 && hasName;
   }
 
