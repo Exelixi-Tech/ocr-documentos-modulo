@@ -40,6 +40,9 @@ import {
   formatDocumentoLabel,
   inferTipoDocFromRaw,
   normalizeIdentificacionDigits,
+  sanitizeOcrString,
+  validateCedulaOcr,
+  isDocOcrDataValid,
 } from '../../lib/identificacion';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
@@ -404,6 +407,42 @@ function UploadDocCard({
         return;
       }
 
+      // Validar si la cédula/RIF devolvió datos nulos o vacíos
+      if (isCedulaOcrSlot(config.type) || config.type === 'rif') {
+        const check = validateCedulaOcr(result.ocr as Record<string, unknown> | undefined);
+        if (!check.valid) {
+          toast.error(
+            `No pudimos leer los datos de "${config.label}"`,
+            'Los datos del documento (cédula o nombre) vinieron vacíos o nulos. Por favor sube una imagen más nítida o legible.',
+            7000,
+          );
+          setDocState(config.type, {
+            status: 'error',
+            progress: 0,
+            error: 'No se detectaron datos válidos (cédula o nombre no legibles). Sube una imagen más clara.',
+          });
+          return;
+        }
+      }
+
+      if (config.type === 'certificado') {
+        const certOcr = (result.ocr || {}) as Record<string, unknown>;
+        const placa = sanitizeOcrString(certOcr.placa);
+        if (!placa) {
+          toast.error(
+            `No pudimos leer la placa de "${config.label}"`,
+            'No se detectó la placa del vehículo. Sube una imagen más clara.',
+            7000,
+          );
+          setDocState(config.type, {
+            status: 'error',
+            progress: 0,
+            error: 'No se detectó la placa del vehículo. Sube una imagen más clara.',
+          });
+          return;
+        }
+      }
+
       if (config.type === 'certificado' && tarjeta) {
         const planKind = resolveTarjetaPlanVehicleKind(tarjeta);
         if (planKind) {
@@ -451,29 +490,36 @@ function UploadDocCard({
       });
 
       if (isCedulaOcrSlot(config.type) && result.ocr && typeof result.ocr === 'object') {
-        const rawId = (result.ocr.identificacion || result.ocr.rif) as string | undefined;
+        const rawId = sanitizeOcrString(result.ocr.identificacion || result.ocr.rif);
         const digits = normalizeIdentificacionDigits(rawId);
+        const rawTipo = sanitizeOcrString(result.ocr.tipoDoc);
         const tipoDoc =
-          (result.ocr.tipoDoc as string | undefined)
+          rawTipo
           || inferTipoDocFromRaw(result.ocr.rif || rawId)
           || (digits ? 'V' : undefined);
         const isPJ = ['J', 'G', 'C'].includes(String(tipoDoc).toUpperCase());
-        const nombre = result.ocr.nombre || (isPJ ? (result.ocr.razonSocial ?? undefined) : undefined);
+        const rawNombre = sanitizeOcrString(result.ocr.nombre);
+        const rawRazon = sanitizeOcrString(result.ocr.razonSocial);
+        const rawApellido = sanitizeOcrString(result.ocr.apellido);
+        const nombre = rawNombre || (isPJ ? (rawRazon ?? undefined) : undefined);
+        const apellido = isPJ ? undefined : rawApellido;
         setDocState(config.type, {
           ocr: {
             ...result.ocr,
             identificacion: digits || undefined,
             ...(tipoDoc ? { tipoDoc } : {}),
             ...(nombre ? { nombre } : {}),
+            ...(apellido ? { apellido } : {}),
           },
         });
       }
 
       if (config.type === 'licencia' && result.ocr && typeof result.ocr === 'object') {
-        const rawId = result.ocr.identificacion as string | undefined;
+        const rawId = sanitizeOcrString(result.ocr.identificacion);
         const digits = normalizeIdentificacionDigits(rawId);
+        const rawTipo = sanitizeOcrString(result.ocr.tipoDoc);
         const tipoDoc =
-          (result.ocr.tipoDoc as string | undefined)
+          rawTipo
           || inferTipoDocFromRaw(rawId)
           || (digits ? 'V' : undefined);
         setDocState(config.type, {
@@ -879,7 +925,7 @@ export function OcrStep() {
   const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
   const allRequiredDone =
     effectiveRequired.length > 0
-    && effectiveRequired.every((d) => documents[d]?.status === 'done');
+    && effectiveRequired.every((d) => isDocOcrDataValid(d, documents[d]));
 
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
@@ -990,7 +1036,7 @@ export function OcrStep() {
     if (updates.sexo || updates.estadoCivil) setTomador(updates);
   }, [catalogs.loading, catalogs.sexos, catalogs.estadosCivil, tomador.sexo, tomador.estadoCivil, setTomador]);
 
-  const completedCount = effectiveRequired.filter((d) => documents[d]?.status === 'done').length;
+  const completedCount = effectiveRequired.filter((d) => isDocOcrDataValid(d, documents[d])).length;
   const completionPct =
     effectiveRequired.length > 0
       ? (completedCount / effectiveRequired.length) * 100
@@ -1088,18 +1134,21 @@ export function OcrStep() {
         // ── Chip genérico ────────────────────────────────────────────────────
         const Chip = ({
           label, value, color = 'white',
-        }: { label: string; value?: string; color?: 'white' | 'amber' }) => value ? (
-          <div className={
-            `rounded-xl p-3 border animate-fade-in ${
-              color === 'amber'
-                ? 'bg-amber-400/20 border-amber-300/30'
-                : 'bg-white/12 backdrop-blur-sm border-white/15'
-            }`
-          }>
-            <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
-            <p className="text-sm font-bold text-white truncate font-mono">{value}</p>
-          </div>
-        ) : null;
+        }: { label: string; value?: string | null; color?: 'white' | 'amber' }) => {
+          const cleanValue = sanitizeOcrString(value);
+          return cleanValue ? (
+            <div className={
+              `rounded-xl p-3 border animate-fade-in ${
+                color === 'amber'
+                  ? 'bg-amber-400/20 border-amber-300/30'
+                  : 'bg-white/12 backdrop-blur-sm border-white/15'
+              }`
+            }>
+              <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
+              <p className="text-sm font-bold text-white truncate font-mono">{cleanValue}</p>
+            </div>
+          ) : null;
+        };
 
         return (
           <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">

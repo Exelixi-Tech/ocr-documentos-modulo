@@ -213,9 +213,24 @@ function isColombianIdentityDoc(fields) {
 
 function normalizeCedulaFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
+
+  for (const key of ['nombre', 'apellido', 'razonSocial', 'rif', 'identificacion', 'fechaNacimiento', 'sexo', 'estadoCivil']) {
+    if (key in fields) {
+      if (isNullishOcrValue(fields[key])) {
+        fields[key] = null;
+      } else {
+        fields[key] = String(fields[key]).trim();
+      }
+    }
+  }
+
   const raw = fields.identificacion ?? fields.rif ?? fields.cedula ?? fields.numeroDocumento ?? fields.numero;
   const digits = normalizeIdentificacionDigits(raw);
-  if (digits) fields.identificacion = digits;
+  if (digits) {
+    fields.identificacion = digits;
+  } else {
+    fields.identificacion = null;
+  }
 
   if (fields.rif) {
     fields.rif = String(fields.rif).trim().toUpperCase();
@@ -538,8 +553,15 @@ const CRITICAL_FIELDS = {
 function validateCriticalFields(docType, fields) {
   // Solo cédula o RIF (patrimoniales): empresa válida con RIF + razón social, sin apellido.
   if (docType === 'cedula_rif') {
-    const hasId = Boolean(fields?.identificacion || fields?.rif);
-    const hasName = Boolean(fields?.nombre || fields?.apellido || fields?.razonSocial);
+    const hasId = Boolean(
+      (fields?.identificacion && !isNullishOcrValue(fields.identificacion)) ||
+      (fields?.rif && !isNullishOcrValue(fields.rif))
+    );
+    const hasName = Boolean(
+      (fields?.nombre && !isNullishOcrValue(fields.nombre)) ||
+      (fields?.apellido && !isNullishOcrValue(fields.apellido)) ||
+      (fields?.razonSocial && !isNullishOcrValue(fields.razonSocial))
+    );
     const missing = [];
     if (!hasId) missing.push('identificacion');
     if (!hasName) missing.push('nombre');
@@ -549,7 +571,7 @@ function validateCriticalFields(docType, fields) {
   const missing = [];
   for (const f of required) {
     const v = fields ? fields[f] : null;
-    if (v == null || String(v).trim() === '') missing.push(f);
+    if (v == null || isNullishOcrValue(v) || String(v).trim() === '') missing.push(f);
   }
   return { ok: missing.length === 0, missing };
 }
