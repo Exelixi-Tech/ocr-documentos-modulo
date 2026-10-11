@@ -178,6 +178,10 @@ function NexusGuardVerified({ children, recheckInterval = 30 }: NexusGuardProps)
   const [state, setState] = useState<GuardState>({ status: deferredVerify ? 'active' : 'loading' });
   const nexusApiUrl = resolveNexusApiUrl(import.meta.env.VITE_NEXUS_API_URL);
   const isMounted = useRef(true);
+  // Una falla transitoria (red, reinicio del servidor, timeout) no debe cerrar una sesión ya válida.
+  const everActive = useRef(false);
+  const transientRetries = useRef(0);
+  const doVerifyRef = useRef<(() => Promise<void>) | null>(null);
 
   const doVerify = useCallback(async () => {
     if (!nexusApiUrl) {
@@ -198,11 +202,26 @@ function NexusGuardVerified({ children, recheckInterval = 30 }: NexusGuardProps)
           persistProductFromHints(hints);
         }
       }
+      everActive.current = true;
+      transientRetries.current = 0;
       setState({ status: 'active', empresa: result.empresa, submodulo: result.submodulo });
     } else {
+      if (result.transient) {
+        if (everActive.current) {
+          console.warn('[NexusGuard] verificación fallida (transitoria); se mantiene la sesión:', result.reason);
+          return;
+        }
+        if (transientRetries.current < 3) {
+          transientRetries.current += 1;
+          const delay = 1500 * transientRetries.current;
+          setTimeout(() => { if (isMounted.current) void doVerifyRef.current?.(); }, delay);
+          return;
+        }
+      }
       setState({ status: 'blocked', reason: result.reason });
     }
   }, [nexusApiUrl]);
+  doVerifyRef.current = doVerify;
 
   useEffect(() => {
     isMounted.current = true;
