@@ -9,7 +9,8 @@
  * no romper el flujo del usuario, pero el error queda registrado.
  */
 
-const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura'];
+// 'soporte' = documento sin lectura automatica (certificado medico, actuaciones de transito, cartas...): solo se guarda.
+const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura', 'soporte'];
 
 const DOC_TYPE_LABELS = {
   cedula: 'Cedula de Identidad',
@@ -18,6 +19,7 @@ const DOC_TYPE_LABELS = {
   rif: 'Registro Unico de Informacion Fiscal (RIF)',
   pasaporte: 'Pasaporte',
   factura: 'Factura fiscal',
+  soporte: 'Documento de soporte',
   desconocido: 'documento no reconocido',
 };
 
@@ -133,6 +135,11 @@ function readTarjetaPlanFromRequest(tarjetaHints) {
 async function runOcr(file, docType, tarjetaHints) {
   if (!VALID_DOC_TYPES.includes(docType)) {
     throw new Error(`Tipo de documento invalido: ${docType}`);
+  }
+
+  // Soporte: no hay extraccion ni validacion de tipo; el archivo queda guardado para revision humana.
+  if (docType === 'soporte') {
+    return { provider: 'none', fields: {} };
   }
 
   const provider = (process.env.OCR_PROVIDER || 'mock').toLowerCase();
