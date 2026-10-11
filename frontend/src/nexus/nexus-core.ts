@@ -126,6 +126,19 @@ export interface NexusVerifyResult {
     accessUrl: string | null;
   };
   reason?: string;
+  /** Falla de red o del servidor (no es una negación del acceso): no debe cerrar la sesión. */
+  transient?: boolean;
+}
+
+/** Corta la verificación si el servidor no responde (evita "Verificando…" infinito). */
+function verifyTimeoutSignal(ms = 10000): AbortSignal | undefined {
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), ms);
+    return ctrl.signal;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function verifyNexusAccess(nexusApiUrl: string): Promise<NexusVerifyResult> {
@@ -141,11 +154,16 @@ export async function verifyNexusAccess(nexusApiUrl: string): Promise<NexusVerif
   try {
     const res = await fetch(`${nexusApiUrl.replace(/\/$/, '')}/api/access/verify`, {
       method: 'GET',
+      signal: verifyTimeoutSignal(),
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
+
+    if (!res.ok && res.status !== 401 && res.status !== 403) {
+      return { active: false, transient: true, reason: `El servidor de autorización respondió ${res.status}.` };
+    }
 
     const data = await res.json();
 
@@ -166,6 +184,6 @@ export async function verifyNexusAccess(nexusApiUrl: string): Promise<NexusVerif
 
     return { active: false, reason: data.reason ?? 'Servicio no disponible para esta empresa.' };
   } catch {
-    return { active: false, reason: 'No se pudo conectar con el servidor de autorización.' };
+    return { active: false, transient: true, reason: 'No se pudo conectar con el servidor de autorización.' };
   }
 }
