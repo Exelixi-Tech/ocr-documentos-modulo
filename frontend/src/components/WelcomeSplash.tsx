@@ -281,7 +281,7 @@ export function WelcomeSplash() {
         >
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 ring-1 ring-white/15 text-[0.66rem] font-bold text-white backdrop-blur-md">
             <Sparkles size={12} style={{ color: BRAND.redLight }} />
-            52 años contigo
+            Un mundo de innovación a tu alcance
           </span>
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 ring-1 ring-white/15 text-[0.66rem] font-bold text-white backdrop-blur-md">
             <ShieldCheck size={12} className="text-emerald-300" />
