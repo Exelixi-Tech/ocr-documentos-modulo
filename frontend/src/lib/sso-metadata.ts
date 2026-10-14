@@ -2,6 +2,7 @@
 export const MARKETPLACE_ACTOR_KEYS = [
   'cgestor',
   'cgestor_in',
+  'csubitem',
   'centidad',
   'citem',
   'cproductor',
@@ -9,6 +10,13 @@ export const MARKETPLACE_ACTOR_KEYS = [
   'cscanalalt_in',
   'ccanalalt',
   'cscanalalt',
+  // Backoffice Sis2000: Emisión/Pagos deciden selector de productor y emisión pendiente.
+  'origen',
+  'crol',
+  'allowPendingEmission',
+  'tipoEmision',
+  'cusuario',
+  'email',
 ] as const;
 
 const MODULE_TOKEN_KEYS = [
