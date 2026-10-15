@@ -135,6 +135,19 @@ function collectTokensFromBrowser(extraTokens: Iterable<string> = []): string[] 
   return tokens;
 }
 
+/** Producto que se emite (`xproducto`/`cproducto`) según los tokens SSO del navegador. */
+export function readSsoProductInfo(): { xproducto: string; cproducto: string } {
+  const out = { xproducto: '', cproducto: '' };
+  for (const token of collectTokensFromBrowser()) {
+    const meta = decodeTokenMetadata(token);
+    if (!meta) continue;
+    if (!out.xproducto) out.xproducto = String(meta.xproducto ?? '').trim();
+    if (!out.cproducto) out.cproducto = String(meta.cproducto ?? '').trim();
+    if (out.xproducto && out.cproducto) break;
+  }
+  return out;
+}
+
 export function mergeMarketplaceActorMetadata(
   base?: Record<string, unknown> | null,
   extraTokens: Iterable<string> = [],
