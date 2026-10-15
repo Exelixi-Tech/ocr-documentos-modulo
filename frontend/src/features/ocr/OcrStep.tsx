@@ -14,6 +14,7 @@ import {
   validateCertificadoForTarjetaPlan,
 } from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
+import { resolvePersonasProductLabel } from '../../lib/personas-product-label';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import {
@@ -152,7 +153,7 @@ const DOCS: DocConfig[] = [
   {
     type: 'cedula_titular',
     label: 'Cédula del titular',
-    description: 'Persona asegurada (funerario)',
+    description: 'Persona asegurada',
     Icon: IdCard,
     accent: 'from-violet-500 to-fuchsia-500',
   },
@@ -554,6 +555,8 @@ function UploadDocCard({
     if (inputRef.current) inputRef.current.value = '';
   }
 
+  const titularProductLabel = config.type === 'cedula_titular' ? resolvePersonasProductLabel() : '';
+
   return (
     <div
       role={isClickable ? 'button' : undefined}
@@ -610,7 +613,7 @@ function UploadDocCard({
           {config.label}
         </h3>
         <p className={`text-slate-500 mt-0.5 ${dense ? 'text-[0.72rem] leading-snug' : 'text-[0.78rem]'}`}>
-          {config.description}
+          {titularProductLabel ? `${config.description} · ${titularProductLabel}` : config.description}
         </p>
       </div>
 
@@ -954,6 +957,9 @@ export function OcrStep() {
     if (updates.sexo || updates.estadoCivil) setTomador(updates);
   }, [catalogs.loading, catalogs.sexos, catalogs.estadosCivil, tomador.sexo, tomador.estadoCivil, setTomador]);
 
+  // Producto de personas que se emite (solo visual; el flujo sigue siendo el de personas).
+  const personasProductLabel = product.id === 'funerario' ? resolvePersonasProductLabel() : '';
+
   const completedCount = effectiveRequired.filter((d) => documents[d]?.status === 'done').length;
   const completionPct =
     effectiveRequired.length > 0
@@ -972,6 +978,11 @@ export function OcrStep() {
               <span className="block mt-2 text-indigo-700 font-semibold text-xs">
                 Documentos originales: cédula, licencia de conducir y certificado del vehículo
                 {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
+              </span>
+            )}
+            {personasProductLabel && (
+              <span className="block mt-2 text-indigo-700 font-semibold text-xs">
+                Emitiendo: {personasProductLabel}
               </span>
             )}
           </p>
