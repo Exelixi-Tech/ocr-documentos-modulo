@@ -1,4 +1,5 @@
 import type { DocType } from '../types';
+import { isViajeroPersonas } from './personas-product-label';
 
 export interface WizardNavSnapshot {
   step: number;
@@ -12,9 +13,9 @@ const DEFAULT_REQUIRED: DocType[] = ['cedula', 'certificado'];
 
 /** Documentos obligatorios por producto cuando no hay config de admin. */
 export function getDefaultRequiredDocs(productId: string): DocType[] {
-  return productId === 'funerario'
-    ? ['cedula', 'cedula_titular']
-    : DEFAULT_REQUIRED;
+  if (productId !== 'funerario') return DEFAULT_REQUIRED;
+  // Viajero: un solo asegurado, basta la cédula del tomador.
+  return isViajeroPersonas() ? ['cedula'] : ['cedula', 'cedula_titular'];
 }
 
 /** Indica si los documentos OCR obligatorios están procesados. */
