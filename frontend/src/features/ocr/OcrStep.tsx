@@ -20,7 +20,7 @@ import {
 } from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
 import { aceptaRifEnCedula, labelConRif } from '../../lib/rif-en-cedula';
-import { resolvePersonasProductLabel } from '../../lib/personas-product-label';
+import { isViajeroPersonas, resolvePersonasProductLabel } from '../../lib/personas-product-label';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import {
@@ -873,7 +873,7 @@ export function OcrStep() {
 
   if (product.id === 'funerario' && !builderProduct) {
     requiredDocs = ['cedula', 'cedula_titular'];
-    optionalDocs = ['cedula_beneficiario'];
+    optionalDocs = isViajeroPersonas() ? [] : ['cedula_beneficiario'];
   } else if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
