@@ -872,8 +872,9 @@ export function OcrStep() {
   }
 
   if (product.id === 'funerario' && !builderProduct) {
-    requiredDocs = ['cedula', 'cedula_titular'];
-    optionalDocs = isViajeroPersonas() ? [] : ['cedula_beneficiario'];
+    // Viajero: un solo asegurado; obligatoria solo la cédula del tomador (titular opcional, sin beneficiario).
+    requiredDocs = isViajeroPersonas() ? ['cedula'] : ['cedula', 'cedula_titular'];
+    optionalDocs = isViajeroPersonas() ? ['cedula_titular'] : ['cedula_beneficiario'];
   } else if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
