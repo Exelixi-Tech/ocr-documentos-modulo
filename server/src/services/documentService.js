@@ -12,7 +12,7 @@
 const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura'];
 
 const DOC_TYPE_LABELS = {
-  cedula: 'Cedula de Identidad',
+  cedula: 'Cedula de Identidad o RIF',
   licencia: 'Licencia de Conducir',
   certificado: 'Carnet de circulación o título de propiedad',
   rif: 'Registro Unico de Informacion Fiscal (RIF)',
@@ -27,12 +27,13 @@ const DOC_TYPE_LABELS = {
  */
 function docTypeMatchesSlot(expected, detected, fields, aceptaRif = false) {
   if (!detected || detected === expected) return true;
-  // Cédula o RIF en el mismo slot solo en productos que lo aceptan (patrimoniales).
-  if (aceptaRif && expected === 'cedula' && detected === 'rif') return true;
+  // Cédula y RIF están unificados en el mismo slot de identidad
+  if (expected === 'cedula' && detected === 'rif') return true;
+  if (expected === 'rif' && detected === 'cedula') return true;
   if (detected !== 'desconocido') return false;
   if (!fields || typeof fields !== 'object') return false;
 
-  if (expected === 'cedula') {
+  if (expected === 'cedula' || expected === 'rif') {
     const digits = String(fields.identificacion ?? fields.rif ?? '').replace(/\D/g, '');
     const hasName = Boolean(fields.nombre || fields.apellido || fields.razonSocial);
     return digits.length >= 6 && hasName;

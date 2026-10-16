@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Upload, CheckCircle2, AlertCircle, RotateCcw, Eye,
-  IdCard, Car, FileText, Building2, Sparkles, ScanLine,
+  IdCard, Car, FileText, Sparkles, ScanLine,
   MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
@@ -20,6 +20,7 @@ import {
 } from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
 import { aceptaRifEnCedula, labelConRif } from '../../lib/rif-en-cedula';
+import { isViajeroPersonas, resolvePersonasProductLabel } from '../../lib/personas-product-label';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import {
@@ -40,6 +41,9 @@ import {
   formatDocumentoLabel,
   inferTipoDocFromRaw,
   normalizeIdentificacionDigits,
+  sanitizeOcrString,
+  validateCedulaOcr,
+  isDocOcrDataValid,
 } from '../../lib/identificacion';
 import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
@@ -150,21 +154,21 @@ function HiddenFileInputs({
 const DOCS: DocConfig[] = [
   {
     type: 'cedula',
-    label: 'Cédula del tomador',
-    description: 'Quien paga la póliza',
+    label: 'Cédula o RIF del tomador',
+    description: 'Quien paga la póliza (persona o empresa)',
     Icon: IdCard,
     accent: 'from-indigo-500 to-violet-500',
   },
   {
     type: 'cedula_titular',
-    label: 'Cédula del titular',
-    description: 'Persona asegurada (funerario)',
+    label: 'Cédula o RIF del titular',
+    description: 'Persona o empresa asegurada',
     Icon: IdCard,
     accent: 'from-violet-500 to-fuchsia-500',
   },
   {
     type: 'cedula_beneficiario',
-    label: 'Cédula del beneficiario',
+    label: 'Cédula o RIF del beneficiario',
     description: 'Opcional · quien recibe el beneficio',
     Icon: IdCard,
     accent: 'from-fuchsia-500 to-rose-500',
@@ -192,14 +196,6 @@ const DOCS: DocConfig[] = [
     accent: 'from-emerald-500 to-teal-500',
   },
   {
-    type: 'rif',
-    label: 'RIF',
-    description: 'Opcional · empresas',
-    Icon: Building2,
-    optional: true,
-    accent: 'from-slate-400 to-slate-500',
-  },
-  {
     type: 'factura',
     label: 'Factura fiscal',
     description: 'Ticket de farmacia · número FACTURA',
@@ -217,7 +213,6 @@ const DOC_DISPLAY_ORDER: DocType[] = [
   'certificado',
   'factura',
   'pasaporte',
-  'rif',
 ];
 
 function sortDocConfigs(docs: DocConfig[]): DocConfig[] {
@@ -404,6 +399,42 @@ function UploadDocCard({
         return;
       }
 
+      // Validar si la cédula/RIF devolvió datos nulos o vacíos
+      if (isCedulaOcrSlot(config.type) || config.type === 'rif') {
+        const check = validateCedulaOcr(result.ocr as Record<string, unknown> | undefined);
+        if (!check.valid) {
+          toast.error(
+            `No pudimos leer los datos de "${config.label}"`,
+            'Los datos del documento (cédula o nombre) vinieron vacíos o nulos. Por favor sube una imagen más nítida o legible.',
+            7000,
+          );
+          setDocState(config.type, {
+            status: 'error',
+            progress: 0,
+            error: 'No se detectaron datos válidos (cédula o nombre no legibles). Sube una imagen más clara.',
+          });
+          return;
+        }
+      }
+
+      if (config.type === 'certificado') {
+        const certOcr = (result.ocr || {}) as Record<string, unknown>;
+        const placa = sanitizeOcrString(certOcr.placa);
+        if (!placa) {
+          toast.error(
+            `No pudimos leer la placa de "${config.label}"`,
+            'No se detectó la placa del vehículo. Sube una imagen más clara.',
+            7000,
+          );
+          setDocState(config.type, {
+            status: 'error',
+            progress: 0,
+            error: 'No se detectó la placa del vehículo. Sube una imagen más clara.',
+          });
+          return;
+        }
+      }
+
       if (config.type === 'certificado' && tarjeta) {
         const planKind = resolveTarjetaPlanVehicleKind(tarjeta);
         if (planKind) {
@@ -451,29 +482,36 @@ function UploadDocCard({
       });
 
       if (isCedulaOcrSlot(config.type) && result.ocr && typeof result.ocr === 'object') {
-        const rawId = (result.ocr.identificacion || result.ocr.rif) as string | undefined;
+        const rawId = sanitizeOcrString(result.ocr.identificacion || result.ocr.rif);
         const digits = normalizeIdentificacionDigits(rawId);
+        const rawTipo = sanitizeOcrString(result.ocr.tipoDoc);
         const tipoDoc =
-          (result.ocr.tipoDoc as string | undefined)
+          rawTipo
           || inferTipoDocFromRaw(result.ocr.rif || rawId)
           || (digits ? 'V' : undefined);
         const isPJ = ['J', 'G', 'C'].includes(String(tipoDoc).toUpperCase());
-        const nombre = result.ocr.nombre || (isPJ ? (result.ocr.razonSocial ?? undefined) : undefined);
+        const rawNombre = sanitizeOcrString(result.ocr.nombre);
+        const rawRazon = sanitizeOcrString(result.ocr.razonSocial);
+        const rawApellido = sanitizeOcrString(result.ocr.apellido);
+        const nombre = rawNombre || (isPJ ? (rawRazon ?? undefined) : undefined);
+        const apellido = isPJ ? undefined : rawApellido;
         setDocState(config.type, {
           ocr: {
             ...result.ocr,
             identificacion: digits || undefined,
             ...(tipoDoc ? { tipoDoc } : {}),
             ...(nombre ? { nombre } : {}),
+            ...(apellido ? { apellido } : {}),
           },
         });
       }
 
       if (config.type === 'licencia' && result.ocr && typeof result.ocr === 'object') {
-        const rawId = result.ocr.identificacion as string | undefined;
+        const rawId = sanitizeOcrString(result.ocr.identificacion);
         const digits = normalizeIdentificacionDigits(rawId);
+        const rawTipo = sanitizeOcrString(result.ocr.tipoDoc);
         const tipoDoc =
-          (result.ocr.tipoDoc as string | undefined)
+          rawTipo
           || inferTipoDocFromRaw(rawId)
           || (digits ? 'V' : undefined);
         setDocState(config.type, {
@@ -579,6 +617,8 @@ function UploadDocCard({
     if (inputRef.current) inputRef.current.value = '';
   }
 
+  const titularProductLabel = config.type === 'cedula_titular' ? resolvePersonasProductLabel() : '';
+
   return (
     <div
       role={isClickable ? 'button' : undefined}
@@ -635,7 +675,7 @@ function UploadDocCard({
           {config.label}
         </h3>
         <p className={`text-slate-500 mt-0.5 ${dense ? 'text-[0.72rem] leading-snug' : 'text-[0.78rem]'}`}>
-          {config.description}
+          {titularProductLabel ? `${config.description} · ${titularProductLabel}` : config.description}
         </p>
       </div>
 
@@ -824,7 +864,7 @@ export function OcrStep() {
 
   if (product.id === 'funerario' && !builderProduct) {
     requiredDocs = ['cedula', 'cedula_titular'];
-    optionalDocs = ['cedula_beneficiario'];
+    optionalDocs = isViajeroPersonas() ? [] : ['cedula_beneficiario'];
   } else if (builderProduct) {
     const slots = resolveBuilderDocuments(builderProduct);
     requiredDocs = slots.filter((d) => d.required).map((d) => d.ocrType);
@@ -879,7 +919,7 @@ export function OcrStep() {
   const tarjetaNeedsFactura = tarjeta?.bfactura === 1;
   const allRequiredDone =
     effectiveRequired.length > 0
-    && effectiveRequired.every((d) => documents[d]?.status === 'done');
+    && effectiveRequired.every((d) => isDocOcrDataValid(d, documents[d]));
 
   useEffect(() => {
     if (allRequiredDone && !ocrDone) {
@@ -990,7 +1030,10 @@ export function OcrStep() {
     if (updates.sexo || updates.estadoCivil) setTomador(updates);
   }, [catalogs.loading, catalogs.sexos, catalogs.estadosCivil, tomador.sexo, tomador.estadoCivil, setTomador]);
 
-  const completedCount = effectiveRequired.filter((d) => documents[d]?.status === 'done').length;
+  // Producto de personas que se emite (solo visual; el flujo sigue siendo el de personas).
+  const personasProductLabel = product.id === 'funerario' ? resolvePersonasProductLabel() : '';
+
+  const completedCount = effectiveRequired.filter((d) => isDocOcrDataValid(d, documents[d])).length;
   const completionPct =
     effectiveRequired.length > 0
       ? (completedCount / effectiveRequired.length) * 100
@@ -1008,6 +1051,11 @@ export function OcrStep() {
               <span className="block mt-2 text-indigo-700 font-semibold text-xs">
                 Documentos originales: cédula, licencia de conducir y carnet de circulación y/o título de propiedad
                 {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
+              </span>
+            )}
+            {personasProductLabel && (
+              <span className="block mt-2 text-indigo-700 font-semibold text-xs">
+                Emitiendo: {personasProductLabel}
               </span>
             )}
           </p>
@@ -1088,18 +1136,21 @@ export function OcrStep() {
         // ── Chip genérico ────────────────────────────────────────────────────
         const Chip = ({
           label, value, color = 'white',
-        }: { label: string; value?: string; color?: 'white' | 'amber' }) => value ? (
-          <div className={
-            `rounded-xl p-3 border animate-fade-in ${
-              color === 'amber'
-                ? 'bg-amber-400/20 border-amber-300/30'
-                : 'bg-white/12 backdrop-blur-sm border-white/15'
-            }`
-          }>
-            <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
-            <p className="text-sm font-bold text-white truncate font-mono">{value}</p>
-          </div>
-        ) : null;
+        }: { label: string; value?: string | null; color?: 'white' | 'amber' }) => {
+          const cleanValue = sanitizeOcrString(value);
+          return cleanValue ? (
+            <div className={
+              `rounded-xl p-3 border animate-fade-in ${
+                color === 'amber'
+                  ? 'bg-amber-400/20 border-amber-300/30'
+                  : 'bg-white/12 backdrop-blur-sm border-white/15'
+              }`
+            }>
+              <p className="text-[0.62rem] text-indigo-100/90 font-bold mb-1 uppercase tracking-wider">{label}</p>
+              <p className="text-sm font-bold text-white truncate font-mono">{cleanValue}</p>
+            </div>
+          ) : null;
+        };
 
         return (
           <div className="mt-6 relative rounded-2xl bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 text-white shadow-[0_24px_48px_rgba(15,26,90,0.28)] animate-spring-in overflow-hidden">

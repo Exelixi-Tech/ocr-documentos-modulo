@@ -34,14 +34,16 @@ import {
   resolveRcvOcrEntryDocs,
   toDiligenciaDocTypes,
 } from './lib/diligencia';
+import { isDocOcrDataValid } from './lib/identificacion';
 import type { DocType } from './types';
+import { isViajeroPersonas } from './lib/personas-product-label';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
 const DOC_LABELS: Record<string, string> = {
-  cedula: 'cédula del tomador',
-  cedula_titular: 'cédula del titular',
-  cedula_beneficiario: 'cédula del beneficiario',
+  cedula: 'cédula o RIF del tomador',
+  cedula_titular: 'cédula o RIF del titular',
+  cedula_beneficiario: 'cédula o RIF del beneficiario',
   licencia: 'licencia',
   certificado: 'certificado',
   pasaporte: 'pasaporte',
@@ -221,7 +223,7 @@ export default function App() {
 
     if (product.id === 'funerario' && !builderProduct) {
       requiredDocs = ['cedula', 'cedula_titular'];
-      optionalDocs = ['cedula_beneficiario'];
+      optionalDocs = isViajeroPersonas() ? [] : ['cedula_beneficiario'];
     }
 
     const binacional = adjustDocsForBinacionalCarnet(
@@ -235,20 +237,23 @@ export default function App() {
   }
 
   const { requiredDocs: effectiveRequiredDocs } = resolveEffectiveOcrDocs();
-  const canContinueOcr = effectiveRequiredDocs.every((d) => documents[d]?.status === 'done');
+  const canContinueOcr = effectiveRequiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
   const pendingDocsHint = effectiveRequiredDocs
-    .filter((d) => documents[d]?.status !== 'done')
+    .filter((d) => !isDocOcrDataValid(d, documents[d]))
     .map((d) => DOC_LABELS[d] ?? d)
     .join(', ');
-  const ocrPendingHint = pendingDocsHint ? `Falta procesar: ${pendingDocsHint}` : undefined;
+  const ocrPendingHint = pendingDocsHint ? `Falta procesar o verificar: ${pendingDocsHint}` : undefined;
 
   function handleContinuar() {
     const { requiredDocs } = resolveEffectiveOcrDocs();
 
-    const allDone = requiredDocs.every((d) => documents[d]?.status === 'done');
-    if (!allDone) {
-      const lista = requiredDocs.map((d) => DOC_LABELS[d] ?? d).join(', ');
-      toast.warning('Documentos pendientes', `Procesa ${lista} para continuar.`);
+    const allValid = requiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
+    if (!allValid) {
+      const lista = requiredDocs
+        .filter((d) => !isDocOcrDataValid(d, documents[d]))
+        .map((d) => DOC_LABELS[d] ?? d)
+        .join(', ');
+      toast.warning('Documentos pendientes o con lectura incompleta', `Por favor sube o reintenta: ${lista}.`);
       return;
     }
 
