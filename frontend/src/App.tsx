@@ -36,6 +36,7 @@ import {
 } from './lib/diligencia';
 import { isDocOcrDataValid } from './lib/identificacion';
 import type { DocType } from './types';
+import { isViajeroPersonas } from './lib/personas-product-label';
 
 const EMPRESA_ID = Number(import.meta.env.VITE_EMPRESA_ID ?? 1);
 
@@ -222,7 +223,7 @@ export default function App() {
 
     if (product.id === 'funerario' && !builderProduct) {
       requiredDocs = ['cedula', 'cedula_titular'];
-      optionalDocs = ['cedula_beneficiario'];
+      optionalDocs = isViajeroPersonas() ? [] : ['cedula_beneficiario'];
     }
 
     const binacional = adjustDocsForBinacionalCarnet(
