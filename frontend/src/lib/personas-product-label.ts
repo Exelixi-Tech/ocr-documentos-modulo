@@ -23,3 +23,9 @@ export function resolvePersonasProductLabel(): string {
   const { xproducto, cproducto } = readSsoProductInfo();
   return xproducto || PERSONAS_PRODUCT_LABELS[cproducto] || '';
 }
+
+/** Viajero (productos 25/26): sin coberturas para beneficiarios, no se pide su cédula. */
+export function isViajeroPersonas(): boolean {
+  const { cproducto } = readSsoProductInfo();
+  return cproducto === '25' || cproducto === '26';
+}
