@@ -6,7 +6,7 @@ import { publicAsset } from '../../lib/app-base';
 import { toast } from '../../store/toastStore';
 import { validateCard } from './api';
 import { TARJETA_YA_ACTIVADA_CODE } from './tarjeta-estado';
-import { markTarjetaPublicSession, normalizeCodigoTarjeta } from './flow';
+import { markTarjetaPublicSession, normalizeCodigoTarjeta, resolveTarjetaProductId } from './flow';
 import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
 
@@ -138,15 +138,18 @@ export function ActivacionTarjetaEntry() {
     try {
       const tarjeta = await validateCard(value);
       const vehicleKind = resolveTarjetaPlanVehicleKind(tarjeta);
-      persistProductFromHints({ product: 'rcv' });
+      // El producto lo define la tarjeta: RCV (vehículo) o personas (Vida, AP, Funerario…).
+      const productId = resolveTarjetaProductId(tarjeta, vehicleKind);
+      persistProductFromHints({ product: productId });
       const current = useWizardStore.getState().metadataCanal || {};
       const canalMeta = metadataFromTarjetaActivacion(tarjeta, {
         ...current,
         tarjetaVehicleKind: vehicleKind,
+        product: productId,
       });
       setMetadataCanal(canalMeta);
       persistTarjetaMetadataCanal(canalMeta);
-      if (vehicleKind) {
+      if (productId === 'rcv' && vehicleKind) {
         setVehicle({ ctipo: ctipoForTarjetaPlan(vehicleKind) });
       }
       setTarjeta(tarjeta);

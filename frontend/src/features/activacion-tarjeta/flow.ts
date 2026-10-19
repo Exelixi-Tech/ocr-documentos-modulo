@@ -45,6 +45,23 @@ export function markTarjetaPublicSession(): void {
   }
 }
 
+/** Ramos de RCV automóvil (18 RCV, 28 RCV binacional). */
+const RCV_RAMOS = new Set(['18', '28']);
+
+/**
+ * Producto del flujo según la tarjeta validada: RCV si el plan es de vehículo
+ * (FARMPA/FARMMO…), el ramo es de RCV o la tarjeta no trae ramo; si no, personas
+ * (Vida, AP, Funerario, Viajero…), que usan el flujo `funerario`.
+ */
+export function resolveTarjetaProductId(
+  tarjeta: { cramo?: string | null },
+  vehicleKind: string | null,
+): 'rcv' | 'funerario' {
+  const cramo = String(tarjeta.cramo ?? '').trim();
+  if (vehicleKind || !cramo || RCV_RAMOS.has(cramo)) return 'rcv';
+  return 'funerario';
+}
+
 /** El código de tarjeta es variado: no se valida formato, solo que no esté vacío. */
 export function normalizeCodigoTarjeta(raw: string): string {
   return String(raw || '').trim().replace(/\s+/g, '').slice(0, 80);
