@@ -70,17 +70,16 @@ function flagsForProductor(
 }
 
 /**
- * Flags visuales: config por cproductor (parametrizador Visual SSO) +
- * oculta el stepper automáticamente si el flujo entra por SSO.
+ * Flags visuales: config por cproductor (parametrizador Visual SSO).
+ * El stepper superior también se muestra por SSO/iframe; la navegación la
+ * limitan las reglas de wizard-navigation (no volver a OCR, no saltar pasos).
  */
 export function useUiFlags(config: Record<string, any> | null): UiFlags {
   const metadataCanal = useWizardStore((s) => s.metadataCanal) as Record<string, unknown> | null;
   const fromConfig = flagsForProductor(config, metadataCanal?.cproductor);
-  const sso = isSsoInvocation(metadataCanal);
 
   return {
     ...DEFAULT_FLAGS,
     ...fromConfig,
-    ...(sso ? { hideStepper: true } : {}),
   };
 }
