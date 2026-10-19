@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Check, ChevronLeft, ChevronRight, FileText, UserCog, ShieldCheck, CreditCard, Car, Users, Building2,
+  ChevronLeft, ChevronRight, FileText, UserCog, ShieldCheck, CreditCard, Car, Users, Building2,
 } from 'lucide-react';
 import {
   canNavigateToStep,
@@ -11,6 +11,7 @@ import {
 import { useWizardStore } from '../store/wizardStore';
 import { getProductConfig } from '../lib/product';
 import { toast } from '../store/toastStore';
+import { StepGlyph, StepKicker, StepperFxStyles, StepperProgress, STEPPER_TONE_EMERALD } from './StepperFx';
 
 /**
  * Stepper horizontal en barra blanca (estilo píldora).
@@ -23,6 +24,7 @@ export function TopStepper() {
   const selectedPlan = useWizardStore((s) => s.selectedPlan);
   const product = getProductConfig();
   const [navigating, setNavigating] = useState(false);
+  const [navTarget, setNavTarget] = useState<number | null>(null);
 
   const navSnapshot = {
     step,
@@ -56,6 +58,7 @@ export function TopStepper() {
     }
 
     setNavigating(true);
+    setNavTarget(target);
     try {
       await window.__bridge?.ready;
       const fn = window.__bridgeNavigateStep ?? window.__bridge?.navigateToStep;
@@ -66,35 +69,43 @@ export function TopStepper() {
       }
     } finally {
       setNavigating(false);
+      setNavTarget(null);
     }
   }
+
+  const activeIdx = STEPS.findIndex((st) => st.n >= step);
+  const progressRatio = STEPS.length > 1 ? (activeIdx < 0 ? 1 : activeIdx / (STEPS.length - 1)) : 0;
 
   const prevStep = getPreviousAllowedStep(step);
   const canPrev = prevStep != null && !navigating && canGoTo(prevStep);
   const canNext = step < 5 && !navigating && canGoTo(step + 1);
 
   return (
-    <div className="hidden lg:block w-full mb-8 animate-fade-in">
+    <div className="sfx-root hidden lg:block w-full mb-8 animate-fade-in">
+      <StepperFxStyles tone={STEPPER_TONE_EMERALD} />
       <div className="flex items-center gap-2.5">
         <button
           type="button"
           onClick={() => prevStep != null && goToStep(prevStep)}
           disabled={!canPrev}
-          className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-700 text-white grid place-items-center shadow-md hover:bg-slate-800 transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-slate-700"
+          className="sfx-arrow flex-shrink-0 w-9 h-9 rounded-full bg-slate-700 text-white grid place-items-center shadow-md hover:bg-slate-800 transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-slate-700"
           aria-label="Paso anterior"
         >
           <ChevronLeft size={18} strokeWidth={2.5} />
         </button>
 
         <nav
-          className="flex-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-white rounded-full shadow-[0_8px_32px_rgba(15,23,42,0.09)] border border-slate-200/70 px-5 py-3.5"
+          className="relative flex-1 min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden bg-white rounded-full shadow-[0_8px_32px_rgba(15,23,42,0.09)] border border-slate-200/70 px-5 py-3.5"
           aria-label="Progreso de suscripción"
         >
           <ol className="flex items-center gap-5 xl:gap-8 min-w-max">
-            {STEPS.map(({ n, label, Icon }) => {
+            {STEPS.map(({ n, label, Icon }, idx) => {
               const isComplete = n < step;
               const isActive = n === step;
               const isClickable = n !== step && !navigating && canGoTo(n);
+              const reachable = n !== step && canGoTo(n);
+              const canReturn = reachable && n < step;
+              const lockedDone = isComplete && !reachable;
 
               return (
                 <li key={n} className="flex items-center gap-2.5 flex-shrink-0">
@@ -102,13 +113,17 @@ export function TopStepper() {
                     type="button"
                     disabled={!isClickable}
                     onClick={() => isClickable && goToStep(n)}
-                    className={`flex items-center gap-2.5 text-left rounded-lg transition-opacity ${
-                      isClickable ? 'cursor-pointer hover:opacity-80' : 'cursor-default'
-                    }`}
+                    title={canReturn ? `Volver a ${label}` : lockedDone ? (n === 1 ? 'Los documentos ya fueron cargados' : 'Este paso ya no se puede modificar') : undefined}
+                    style={{ animationDelay: `${idx * 70}ms` }}
+                    className={`sfx-step flex items-center gap-2.5 text-left rounded-lg ${
+                      isClickable ? 'cursor-pointer' : 'cursor-default'
+                    } ${canReturn ? 'sfx-can-return' : reachable ? 'sfx-can-advance' : ''} ${
+                      isActive ? 'sfx-active' : ''
+                    } ${lockedDone ? 'sfx-locked' : ''}`}
                   >
                     <div
                       className={`
-                        w-10 h-10 rounded-full grid place-items-center flex-shrink-0 transition-colors duration-200
+                        sfx-circle w-10 h-10 rounded-full grid place-items-center flex-shrink-0 transition-colors duration-200
                         ${isComplete
                           ? 'bg-emerald-500 shadow-[0_4px_12px_rgba(16,185,129,0.35)]'
                           : isActive
@@ -117,15 +132,14 @@ export function TopStepper() {
                         }
                       `}
                     >
-                      {isComplete ? (
-                        <Check size={18} className="text-white" strokeWidth={3} />
-                      ) : (
-                        <Icon
-                          size={18}
-                          className={isActive ? 'text-slate-600' : 'text-slate-400'}
-                          strokeWidth={2}
-                        />
-                      )}
+                      <StepGlyph
+                        Icon={Icon}
+                        isComplete={isComplete}
+                        isActive={isActive}
+                        canReturn={canReturn}
+                        locked={lockedDone}
+                        loading={navTarget === n}
+                      />
                     </div>
 
                     <div className="min-w-0">
@@ -134,7 +148,13 @@ export function TopStepper() {
                           isComplete ? 'text-emerald-500' : isActive ? 'text-sky-600' : 'text-slate-400'
                         }`}
                       >
-                        PASO 0{n}
+                        <StepKicker
+                          label={`PASO 0${n}`}
+                          canReturn={canReturn}
+                          canAdvance={reachable && n > step}
+                          locked={lockedDone}
+                          lockedText={n === 1 ? 'Ya cargados' : 'Bloqueado'}
+                        />
                       </p>
                       <p
                         className={`mt-1 text-[0.88rem] font-bold leading-tight truncate max-w-[9.5rem] ${
@@ -149,13 +169,14 @@ export function TopStepper() {
               );
             })}
           </ol>
+          <StepperProgress ratio={progressRatio} />
         </nav>
 
         <button
           type="button"
           onClick={() => goToStep(step + 1)}
           disabled={!canNext}
-          className="flex-shrink-0 w-9 h-9 rounded-full bg-slate-700 text-white grid place-items-center shadow-md hover:bg-slate-800 transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-slate-700"
+          className="sfx-arrow flex-shrink-0 w-9 h-9 rounded-full bg-slate-700 text-white grid place-items-center shadow-md hover:bg-slate-800 transition-colors disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-slate-700"
           aria-label="Paso siguiente"
         >
           <ChevronRight size={18} strokeWidth={2.5} />
