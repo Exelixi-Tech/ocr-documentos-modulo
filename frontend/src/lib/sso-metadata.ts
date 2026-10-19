@@ -1,3 +1,5 @@
+import { readTarjetaMetadataCanal } from '../features/activacion-tarjeta/metadata';
+
 /** Campos actor marketplace — deben sobrevivir entre módulos del bridge. */
 export const MARKETPLACE_ACTOR_KEYS = [
   'cgestor',
@@ -135,7 +137,10 @@ function collectTokensFromBrowser(extraTokens: Iterable<string> = []): string[] 
   return tokens;
 }
 
-/** Producto que se emite (`xproducto`/`cproducto`) según los tokens SSO del navegador. */
+/**
+ * Producto que se emite (`xproducto`/`cproducto`) según los tokens SSO del navegador.
+ * Flujo tarjeta (sin SSO): el producto y su nombre que devolvió validate-card.
+ */
 export function readSsoProductInfo(): { xproducto: string; cproducto: string } {
   const out = { xproducto: '', cproducto: '' };
   for (const token of collectTokensFromBrowser()) {
@@ -144,6 +149,11 @@ export function readSsoProductInfo(): { xproducto: string; cproducto: string } {
     if (!out.xproducto) out.xproducto = String(meta.xproducto ?? '').trim();
     if (!out.cproducto) out.cproducto = String(meta.cproducto ?? '').trim();
     if (out.xproducto && out.cproducto) break;
+  }
+  if (!out.cproducto) {
+    const tarjeta = readTarjetaMetadataCanal();
+    out.cproducto = String(tarjeta?.cproducto ?? '').trim();
+    if (!out.xproducto) out.xproducto = String(tarjeta?.nombre_producto ?? '').trim();
   }
   return out;
 }
