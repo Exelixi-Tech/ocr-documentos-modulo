@@ -140,6 +140,12 @@ export function ActivacionTarjetaEntry() {
       const vehicleKind = resolveTarjetaPlanVehicleKind(tarjeta);
       // El producto lo define la tarjeta: RCV (vehículo) o personas (Vida, AP, Funerario…).
       const productId = resolveTarjetaProductId(tarjeta, vehicleKind);
+      if (!productId) {
+        throw new Error(
+          `El producto de esta tarjeta${tarjeta.nombreProducto ? ` (${tarjeta.nombreProducto})` : ''} `
+          + 'todavía no se puede activar en línea. Comunícate con La Mundial.',
+        );
+      }
       persistProductFromHints({ product: productId });
       const current = useWizardStore.getState().metadataCanal || {};
       const canalMeta = metadataFromTarjetaActivacion(tarjeta, {

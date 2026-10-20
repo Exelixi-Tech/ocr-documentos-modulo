@@ -48,15 +48,28 @@ export function markTarjetaPublicSession(): void {
 /** Ramos de RCV automóvil (18 RCV, 28 RCV binacional). */
 const RCV_RAMOS = new Set(['18', '28']);
 
+/** tipo_formulario del lote (mismos valores que ventacards de SysIP, más los de personas). */
+const TIPO_RCV = /^(rcv|auto|automovil|automobile)/;
+const TIPO_PERSONAS = /^(persona|person|viajero|travel|funerari|vida|salud|ap\b|ap-|accidente)/;
+/** Productos que el flujo de tarjeta aún no emite (no son RCV ni personas). */
+const TIPO_NO_SOPORTADO = /^(hogar|condomin|patrimon|bien|incendio|casco|empresa|pyme)/;
+
 /**
- * Producto del flujo según la tarjeta validada: RCV si el plan es de vehículo
- * (FARMPA/FARMMO…), el ramo es de RCV o la tarjeta no trae ramo; si no, personas
- * (Vida, AP, Funerario, Viajero…), que usan el flujo `funerario`.
+ * Producto del flujo según la tarjeta validada.
+ * 1) tipo_formulario del lote: RCV, personas (flujo `funerario`) o no soportado (null).
+ * 2) Sin tipo reconocido: RCV si el plan es de vehículo (FARMPA/FARMMO…), el ramo es de
+ *    RCV o la tarjeta no trae ramo; si no, personas (Vida, AP, Funerario, Viajero…).
  */
 export function resolveTarjetaProductId(
-  tarjeta: { cramo?: string | null },
+  tarjeta: { cramo?: string | null; raw?: Record<string, unknown> | null },
   vehicleKind: string | null,
-): 'rcv' | 'funerario' {
+): 'rcv' | 'funerario' | null {
+  const tipo = String(tarjeta.raw?.tipo_formulario ?? '').trim().toLowerCase();
+  if (tipo) {
+    if (TIPO_RCV.test(tipo)) return 'rcv';
+    if (TIPO_PERSONAS.test(tipo)) return 'funerario';
+    if (TIPO_NO_SOPORTADO.test(tipo)) return null;
+  }
   const cramo = String(tarjeta.cramo ?? '').trim();
   if (vehicleKind || !cramo || RCV_RAMOS.has(cramo)) return 'rcv';
   return 'funerario';
