@@ -14,7 +14,7 @@ const KEY_TO_OCR: Record<string, BuilderOcrDocType | null> = {
   LICENCIA_CONDUCIR: 'licencia',
   CARNET_CIRCULACION: 'certificado',
   CERTIFICADO_ORIGEN: 'certificado',
-  RIF: 'cedula',
+  RIF: 'rif',
 };
 
 const DEFAULT_DOCS_BY_BRANCH: Record<BuilderProductBranch, Record<string, boolean>> = {
@@ -22,16 +22,16 @@ const DEFAULT_DOCS_BY_BRANCH: Record<BuilderProductBranch, Record<string, boolea
   RCV_OBLIGATORIO: { CEDULA: true, LICENCIA_CONDUCIR: true, CARNET_CIRCULACION: true, RIF: false },
   SALUD: { CEDULA: true, RIF: false },
   VIDA: { CEDULA: true, RIF: false },
-  PATRIMONIAL: { CEDULA: true, RIF: false },
+  PATRIMONIAL: { CEDULA: true, RIF: true },
   INCLUSIVO: { CEDULA: true, RIF: false },
 };
 
 const DOC_LABELS: Record<string, string> = {
-  CEDULA: 'Cédula o RIF',
+  CEDULA: 'Cédula de identidad',
   LICENCIA_CONDUCIR: 'Licencia de conducir',
   CARNET_CIRCULACION: 'Carnet de circulación',
   CERTIFICADO_ORIGEN: 'Certificado de origen',
-  RIF: 'Cédula o RIF',
+  RIF: 'RIF',
 };
 
 export const BUILDER_PRODUCT_STORAGE_KEY = 'exelixi_builder_product';

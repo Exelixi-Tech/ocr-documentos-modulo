@@ -15,19 +15,14 @@ function toIsoFechaNac(raw?: string | null): string {
 
 function personFromOcr(ocr?: OcrResult | null) {
   if (!ocr) return null;
-  const rawId = ocr.identificacion || ocr.rif;
+  const rawId = ocr.identificacion;
   const identificacion = normalizeIdentificacionDigits(rawId);
-  const tipoDoc = ocr.tipoDoc ?? inferTipoDocFromRaw(rawId) ?? 'V';
-  const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
-  const nombre = ocr.nombre || (isPJ ? (ocr.razonSocial ?? '') : '');
-  const apellido = isPJ ? '' : (ocr.apellido ?? '');
-
-  if (!identificacion && !nombre && !apellido) return null;
+  if (!identificacion && !ocr.nombre && !ocr.apellido) return null;
   return {
-    tipoDoc,
+    tipoDoc: ocr.tipoDoc ?? inferTipoDocFromRaw(rawId) ?? 'V',
     identificacion,
-    nombre,
-    apellido,
+    nombre: ocr.nombre ?? '',
+    apellido: ocr.apellido ?? '',
     fechaNac: toIsoFechaNac(ocr.fechaNacimiento),
     sexo: ocr.sexo ?? '',
     estadoCivil: ocr.estadoCivil ?? '',
