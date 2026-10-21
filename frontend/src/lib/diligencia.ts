@@ -66,14 +66,15 @@ export const DEFAULT_DILIGENCIA_CONFIG: ProductDiligenciaConfig = {
 };
 
 export const DEFAULT_DOCS_DDS: DocConfigEntry[] = [
-  { key: 'cedula', activo: true, obligatorio: true, label: 'Cédula de Identidad o RIF' },
+  { key: 'cedula', activo: true, obligatorio: true, label: 'Cédula de Identidad' },
   { key: 'pasaporte', activo: true, obligatorio: false, label: 'Pasaporte' },
 ];
 
 export const DEFAULT_DOCS_DDC: DocConfigEntry[] = [
-  { key: 'cedula', activo: true, obligatorio: true, label: 'Cédula de Identidad o RIF' },
+  { key: 'cedula', activo: true, obligatorio: true, label: 'Cédula de Identidad' },
   { key: 'licencia', activo: true, obligatorio: true, label: 'Licencia de Conducir' },
   { key: 'certificado', activo: true, obligatorio: true, label: 'Certificado de Circulación' },
+  { key: 'rif', activo: true, obligatorio: false, label: 'RIF' },
 ];
 
 function parseDocList(
