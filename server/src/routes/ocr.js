@@ -182,7 +182,9 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
       nombreProducto: req.body?.tarjetaNombreProducto,
     };
 
-    const ocrResult = await runOcr(file, docType, tarjetaHints);
+    // aceptaRif=1: el producto acepta RIF de empresa en el slot de cédula (patrimoniales).
+    const aceptaRif = String(req.body?.aceptaRif ?? '') === '1';
+    const ocrResult = await runOcr(file, docType, tarjetaHints, { aceptaRif });
 
     let fileHash = null;
     try {

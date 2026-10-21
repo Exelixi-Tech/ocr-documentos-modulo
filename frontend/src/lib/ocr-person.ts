@@ -25,7 +25,7 @@ export function extractPersonFromOcr(ocr?: OcrResult | null): {
   const tipoDoc =
     ocr.tipoDoc
     ?? inferTipoDocFromRaw(rawId)
-    ?? (identificacion ? 'V' : 'V');
+    ?? 'V';
 
   const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
   const nombre = ocr.nombre || (isPJ ? (ocr.razonSocial ?? '') : '');

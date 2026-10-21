@@ -14,7 +14,7 @@ function detectExelixiFlowFromUrl(): boolean {
     const flow = params.get('flow');
     if (flow === 'exelixi-catalog' || flow === 'exelixi') return true;
     const product = params.get('product');
-    if (product === 'rcv' || product === 'funerario') return false;
+    if (product === 'rcv' || product === 'funerario' || product === 'patrimoniales') return false;
     if (isExelixiCatalogEntryPath()) return true;
   } catch {
     /* ignore */

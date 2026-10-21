@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Upload, CheckCircle2, AlertCircle, RotateCcw, Eye,
-  IdCard, Car, FileText, Sparkles, ScanLine,
+  IdCard, Car, FileText, Building2, Sparkles, ScanLine,
   MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
@@ -15,6 +15,7 @@ import {
 } from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
 import { isViajeroPersonas, resolvePersonasProductLabel } from '../../lib/personas-product-label';
+import { aceptaRifEnCedula, labelConRif } from '../../lib/rif-en-cedula';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import {
@@ -148,21 +149,21 @@ function HiddenFileInputs({
 const DOCS: DocConfig[] = [
   {
     type: 'cedula',
-    label: 'Cédula o RIF del tomador',
-    description: 'Quien paga la póliza (persona o empresa)',
+    label: 'Cédula del tomador',
+    description: 'Quien paga la póliza',
     Icon: IdCard,
     accent: 'from-indigo-500 to-violet-500',
   },
   {
     type: 'cedula_titular',
-    label: 'Cédula o RIF del titular',
-    description: 'Persona o empresa asegurada',
+    label: 'Cédula del titular',
+    description: 'Persona asegurada',
     Icon: IdCard,
     accent: 'from-violet-500 to-fuchsia-500',
   },
   {
     type: 'cedula_beneficiario',
-    label: 'Cédula o RIF del beneficiario',
+    label: 'Cédula del beneficiario',
     description: 'Opcional · quien recibe el beneficio',
     Icon: IdCard,
     accent: 'from-fuchsia-500 to-rose-500',
@@ -190,6 +191,14 @@ const DOCS: DocConfig[] = [
     accent: 'from-emerald-500 to-teal-500',
   },
   {
+    type: 'rif',
+    label: 'RIF',
+    description: 'Opcional · empresas',
+    Icon: Building2,
+    optional: true,
+    accent: 'from-slate-400 to-slate-500',
+  },
+  {
     type: 'factura',
     label: 'Factura fiscal',
     description: 'Ticket de farmacia · número FACTURA',
@@ -207,6 +216,7 @@ const DOC_DISPLAY_ORDER: DocType[] = [
   'certificado',
   'factura',
   'pasaporte',
+  'rif',
 ];
 
 function sortDocConfigs(docs: DocConfig[]): DocConfig[] {
@@ -372,6 +382,7 @@ function UploadDocCard({
         tarjetaCplan: tarjeta?.cplan,
         tarjetaCproducto: tarjeta?.cproducto,
         tarjetaNombreProducto: tarjeta?.nombreProducto,
+        aceptaRif: aceptaRifEnCedula(),
       });
 
       setDocState(config.type, { status: 'processing', progress: 100 });
@@ -881,11 +892,15 @@ export function OcrStep() {
     });
   }, [product.id, itipoDiligencia, effectiveRequired.join(','), documents, setDiligencia]);
 
+  // Patrimoniales: la cédula acepta RIF de empresa, así que no se muestra el RIF aparte.
+  const rifEnCedula = aceptaRifEnCedula();
   const visibleDocs = sortDocConfigs(
     DOCS.filter(
-      (d) => effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type),
+      (d) => (effectiveRequired.includes(d.type) || effectiveOptional.includes(d.type))
+        && !(rifEnCedula && d.type === 'rif'),
     ).map((d) => ({
       ...d,
+      ...(rifEnCedula && isCedulaOcrSlot(d.type) ? { label: labelConRif(d.label) } : {}),
       optional: effectiveOptional.includes(d.type),
     })),
   );

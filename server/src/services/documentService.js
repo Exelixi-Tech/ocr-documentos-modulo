@@ -12,7 +12,7 @@
 const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura'];
 
 const DOC_TYPE_LABELS = {
-  cedula: 'Cedula de Identidad o RIF',
+  cedula: 'Cedula de Identidad',
   licencia: 'Licencia de Conducir',
   certificado: 'Certificado de Circulacion',
   rif: 'Registro Unico de Informacion Fiscal (RIF)',
@@ -25,15 +25,14 @@ const DOC_TYPE_LABELS = {
  * Acepta documentos de identidad / RIF o documentos colombianos en slots cedula/licencia (RCV extranjero)
  * cuando Gemini devuelve desconocido pero extrajo campos utiles.
  */
-function docTypeMatchesSlot(expected, detected, fields) {
+function docTypeMatchesSlot(expected, detected, fields, aceptaRif = false) {
   if (!detected || detected === expected) return true;
-  // Cédula y RIF están unificados en el mismo slot de identidad
-  if (expected === 'cedula' && detected === 'rif') return true;
-  if (expected === 'rif' && detected === 'cedula') return true;
+  // Cédula o RIF en el mismo slot solo en productos que lo aceptan (patrimoniales).
+  if (aceptaRif && expected === 'cedula' && detected === 'rif') return true;
   if (detected !== 'desconocido') return false;
   if (!fields || typeof fields !== 'object') return false;
 
-  if (expected === 'cedula' || expected === 'rif') {
+  if (expected === 'cedula') {
     const digits = String(fields.identificacion ?? fields.rif ?? '').replace(/\D/g, '');
     const hasName = Boolean(fields.nombre || fields.apellido || fields.razonSocial);
     return digits.length >= 6 && hasName;
@@ -133,7 +132,8 @@ function readTarjetaPlanFromRequest(tarjetaHints) {
   });
 }
 
-async function runOcr(file, docType, tarjetaHints) {
+async function runOcr(file, docType, tarjetaHints, opts = {}) {
+  const aceptaRif = opts.aceptaRif === true;
   if (!VALID_DOC_TYPES.includes(docType)) {
     throw new Error(`Tipo de documento invalido: ${docType}`);
   }
@@ -143,7 +143,7 @@ async function runOcr(file, docType, tarjetaHints) {
   if (provider === 'gemini') {
     try {
       const gemini = require('./geminiProvider');
-      const result = await gemini.extract(file.path, file.mimetype, docType);
+      const result = await gemini.extract(file.path, file.mimetype, docType, { aceptaRif });
 
       const chainSummary = (result.meta.chainAttempts || [])
         .map(a => `${a.model}(${a.criticalOk ? 'ok' : a.error ? 'err' : 'partial'})`)
@@ -155,7 +155,7 @@ async function runOcr(file, docType, tarjetaHints) {
 
       // Validacion: el header del documento debe coincidir con el slot solicitado.
       const detected = result.fields && result.fields.documentoTipo;
-      if (detected && !docTypeMatchesSlot(docType, detected, result.fields)) {
+      if (detected && !docTypeMatchesSlot(docType, detected, result.fields, aceptaRif)) {
         const expectedLabel = DOC_TYPE_LABELS[docType] || docType;
         const detectedLabel = DOC_TYPE_LABELS[detected] || detected;
         console.warn(

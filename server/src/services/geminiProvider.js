@@ -551,7 +551,8 @@ const CRITICAL_FIELDS = {
  * Devuelve { ok, missing[] } para diagnóstico.
  */
 function validateCriticalFields(docType, fields) {
-  if (docType === 'cedula' || docType === 'rif') {
+  // Solo cédula o RIF (patrimoniales): empresa válida con RIF + razón social, sin apellido.
+  if (docType === 'cedula_rif') {
     const hasId = Boolean(
       (fields?.identificacion && !isNullishOcrValue(fields.identificacion)) ||
       (fields?.rif && !isNullishOcrValue(fields.rif))
@@ -611,6 +612,54 @@ const DOC_TYPE_PROP = {
  */
 const SCHEMAS = {
   cedula: {
+    type: Type.OBJECT,
+    properties: {
+      documentoTipo: DOC_TYPE_PROP,
+      nombre: { type: Type.STRING, description: 'Primer nombre del titular' },
+      apellido: { type: Type.STRING, description: 'Primer apellido del titular' },
+      identificacion: {
+        type: Type.STRING,
+        description:
+          'Numero de documento, solo digitos sin prefijo ni puntos. ' +
+          'Venezuela: sin V-/E-. Colombia: campo NUMERO (ej. 1007028627).',
+      },
+      tipoDoc: {
+        type: Type.STRING,
+        enum: ['V', 'E', 'P'],
+        description:
+          'V=venezolano, E=extranjero/colombiano (C.C. Colombia), P=pasaporte',
+      },
+      paisEmisor: {
+        type: Type.STRING,
+        enum: ['VE', 'CO'],
+        description: 'VE=Venezuela, CO=Colombia (Cedula de Ciudadania)',
+      },
+      fechaNacimiento: {
+        type: Type.STRING,
+        description:
+          'SOLO el campo rotulado F. NACIMIENTO / FECHA DE NACIMIENTO. ' +
+          'Cedula VE: el impreso es DD/MM/YYYY (ej. 08/10/1997 → 1997-10-08). ' +
+          'NUNCA uses F. EXPEDICION, F. VENCIMIENTO ni un ano inventado. ' +
+          'Si no lees F. NACIMIENTO, null. Formato de salida YYYY-MM-DD.',
+      },
+      sexo: {
+        type: Type.STRING,
+        enum: ['Masculino', 'Femenino'],
+      },
+      estadoCivil: {
+        type: Type.STRING,
+        enum: ['Soltero(a)', 'Casado(a)', 'Divorciado(a)', 'Viudo(a)'],
+        description:
+          'Estado civil del titular. La cedula venezolana lo trae con codigo: ' +
+          'S=Soltero(a), C=Casado(a), D=Divorciado(a), V=Viudo(a). ' +
+          'Devuelve siempre el valor expandido entre parentesis (ej. "Soltero(a)").',
+      },
+    },
+    required: ['documentoTipo'],
+  },
+
+  /** Cédula o RIF (persona natural o jurídica). Solo productos con aceptaRif (patrimoniales). */
+  cedula_rif: {
     type: Type.OBJECT,
     properties: {
       documentoTipo: DOC_TYPE_PROP,
@@ -868,6 +917,19 @@ const VALIDATION_PREAMBLE =
 const PROMPTS = {
   cedula:
     VALIDATION_PREAMBLE +
+    'Tipo solicitado: DOCUMENTO DE IDENTIDAD PERSONAL (Venezuela o Colombia — flujo RCV extranjero). ' +
+    '=== Venezuela === ' +
+    'Header "CEDULA DE IDENTIDAD". tipoDoc="V" si VENEZOLANO, "E" si EXTRANJERO. ' +
+    '=== Colombia === ' +
+    'Header "REPUBLICA DE COLOMBIA" + "CEDULA DE CIUDADANIA". paisEmisor="CO", tipoDoc="E". ' +
+    'apellido = campo APELLIDOS; nombre = campo NOMBRES; identificacion = NUMERO (solo digitos). ' +
+    'fechaNacimiento = UNICAMENTE F. NACIMIENTO (VE: DD/MM/YYYY → YYYY-MM-DD). ' +
+    'Ejemplo: 08/10/1997 es 1997-10-08 (8 de octubre de 1997), NO 1997-08-10 ni otro ano. ' +
+    'IGNORA F. EXPEDICION y F. VENCIMIENTO. NUNCA inventes el ano (p. ej. 1945). ' +
+    'El campo identificacion debe contener solo digitos. ' +
+    'Para estadoCivil venezolano: S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)".',
+  cedula_rif:
+    VALIDATION_PREAMBLE +
     'Tipo solicitado: DOCUMENTO DE IDENTIDAD PERSONAL O RIF (Cédula de Venezuela o Colombia, Pasaporte, o Registro Único de Información Fiscal RIF del SENIAT de persona natural o jurídica). ' +
     '=== Si es Cédula de Identidad (Venezuela o Colombia) === ' +
     'Venezuela: Header "CEDULA DE IDENTIDAD". tipoDoc="V" si VENEZOLANO, "E" si EXTRANJERO. ' +
@@ -954,7 +1016,7 @@ const SYSTEM_INSTRUCTION =
  * Llama a Gemini con un modelo específico y reintentos automáticos para errores
  * transitorios (5xx, rate-limit, timeout). Devuelve el JSON parseado o lanza.
  */
-async function callGeminiWithRetry(model, docType, base64, mimetype) {
+async function callGeminiWithRetry(model, docType, base64, mimetype, schemaKey = docType) {
   const ai = getClient();
   const maxRetries = parseInt(process.env.GEMINI_MAX_RETRIES, 10) || 2;
   let lastErr;
@@ -968,7 +1030,7 @@ async function callGeminiWithRetry(model, docType, base64, mimetype) {
           {
             role: 'user',
             parts: [
-              { text: PROMPTS[docType] },
+              { text: PROMPTS[schemaKey] },
               { inlineData: { mimeType: mimetype, data: base64 } },
             ],
           },
@@ -976,7 +1038,7 @@ async function callGeminiWithRetry(model, docType, base64, mimetype) {
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
           responseMimeType: 'application/json',
-          responseSchema: SCHEMAS[docType],
+          responseSchema: SCHEMAS[schemaKey],
           temperature: 0.1,
         },
       });
@@ -1035,7 +1097,9 @@ async function callGeminiWithRetry(model, docType, base64, mimetype) {
  * @param {string} docType   cedula | licencia | certificado | rif.
  * @returns {Promise<{fields:object, meta:object}>}
  */
-async function extract(filePath, mimetype, docType) {
+async function extract(filePath, mimetype, docType, opts = {}) {
+  // Cédula o RIF en el mismo slot solo si el producto lo pide (patrimoniales). RCV/funerario: prompt original.
+  const schemaKey = docType === 'cedula' && opts.aceptaRif ? 'cedula_rif' : docType;
   if (!SCHEMAS[docType]) {
     throw new Error(`Tipo de documento no soportado por Gemini: ${docType}`);
   }
@@ -1055,8 +1119,8 @@ async function extract(filePath, mimetype, docType) {
 
   for (const model of chain) {
     try {
-      const r = await callGeminiWithRetry(model, docType, base64, mimetype);
-      const validation = validateCriticalFields(docType, r.fields);
+      const r = await callGeminiWithRetry(model, docType, base64, mimetype, schemaKey);
+      const validation = validateCriticalFields(schemaKey, r.fields);
 
       attemptsLog.push({
         model,
