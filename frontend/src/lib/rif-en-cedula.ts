@@ -13,9 +13,27 @@ const EXTRA_PRODUCTOS = new Set(
     .filter(Boolean),
 );
 
+const PATRIMONIAL_KEY = 'exelixi_rif_en_cedula';
+
+/** Nexus manda `?product=patrimoniales`; getProductId() solo conoce rcv/funerario. */
+function isPatrimonialSession(): boolean {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get('product');
+    if (fromUrl === 'patrimoniales') {
+      sessionStorage.setItem(PATRIMONIAL_KEY, '1');
+      return true;
+    }
+    if (fromUrl) sessionStorage.removeItem(PATRIMONIAL_KEY);
+    return sessionStorage.getItem(PATRIMONIAL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function aceptaRifEnCedula(): boolean {
-  const id = getProductId();
+  const id = String(getProductId());
   if (id === 'patrimoniales' || EXTRA_PRODUCTOS.has(id)) return true;
+  if (isPatrimonialSession()) return true;
   return readStoredBuilderProduct()?.branch === 'PATRIMONIAL';
 }
 
