@@ -52,8 +52,6 @@ export function canNavigateToStep(
   // Los documentos ya se cargaron en OCR: no se vuelve al paso 1.
   if (targetStep === 1 && currentStep > 1) return false;
 
-  if (currentStep === 5 && targetStep < 5 && targetStep !== 4) return false;
-
   if (targetStep >= 2 && !areDocumentsComplete(snapshot)) return false;
 
   if (targetStep >= 5 && !hasPlanSelected(snapshot)) return false;
@@ -98,9 +96,6 @@ export function getNavigationBlockReason(
     return 'Los documentos ya fueron cargados; no puedes volver a ese paso.';
   }
 
-  if (currentStep === 5 && targetStep < 5 && targetStep !== 4) {
-    return 'Desde el pago solo puedes volver al paso de plan para cambiarlo.';
-  }
   if (targetStep >= 2 && !areDocumentsComplete(snapshot)) {
     return 'Sube y procesa los documentos obligatorios antes de continuar.';
   }
