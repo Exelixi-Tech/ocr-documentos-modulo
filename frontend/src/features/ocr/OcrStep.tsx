@@ -245,10 +245,13 @@ function UploadDocCard({
   config,
   onOpenPreview,
   dense = false,
+  hint,
 }: {
   config: DocConfig;
   onOpenPreview: (file: DocumentFile, title: string) => void;
   dense?: boolean;
+  /** Nota adicional bajo la descripción del documento. */
+  hint?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -686,6 +689,11 @@ function UploadDocCard({
         <p className={`text-slate-500 mt-0.5 ${dense ? 'text-[0.72rem] leading-snug' : 'text-[0.78rem]'}`}>
           {titularProductLabel ? `${config.description} · ${titularProductLabel}` : config.description}
         </p>
+        {hint && (
+          <p className={`text-indigo-700 font-semibold mt-1 ${dense ? 'text-[0.68rem] leading-snug' : 'text-[0.72rem]'}`}>
+            {hint}
+          </p>
+        )}
       </div>
 
       <div className={`
@@ -1061,6 +1069,11 @@ export function OcrStep() {
               <span className="block mt-2 text-indigo-700 font-semibold text-xs">
                 Documentos originales: cédula, licencia de conducir y carnet de circulación y/o título de propiedad
                 {tarjetaNeedsFactura ? ', más factura fiscal de farmacia' : ''}
+                {!tarjeta && (
+                  <span className="block mt-1 font-normal text-slate-600">
+                    Vehículo extranjero: basta con cargar la Licencia de Tránsito en el documento del vehículo.
+                  </span>
+                )}
               </span>
             )}
             {personasProductLabel && (
@@ -1099,6 +1112,11 @@ export function OcrStep() {
               key={doc.type}
               config={doc}
               dense={cardDense}
+              hint={
+                doc.type === 'certificado' && product.id === 'rcv' && !tarjeta
+                  ? 'Vehículo extranjero: con la Licencia de Tránsito basta para continuar.'
+                  : undefined
+              }
               onOpenPreview={(file, title) => setPreview({ file, title })}
             />
           ))}
