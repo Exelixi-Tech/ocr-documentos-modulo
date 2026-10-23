@@ -24,7 +24,7 @@ const ALL_OPTIONS: {
 }[] = [
   { id: 'nacional', label: 'Nacional', desc: 'Placa venezolana · circulación en el país', Icon: Flag },
   { id: 'extranjera', label: 'Extranjera', desc: 'Vehículo extranjero que ingresa (según OCR)', Icon: Globe2 },
-  { id: 'binacional', label: 'Binacional', desc: 'Salida del vehículo venezolano fuera del país', Icon: MapPin },
+  { id: 'binacional', label: 'Binacional', desc: 'Solo vehículos de carga: salida del vehículo venezolano fuera del país', Icon: MapPin },
 ];
 
 export function TipoPlacaSelector({
@@ -54,7 +54,7 @@ export function TipoPlacaSelector({
             Tipo de emisión RCV
           </p>
           <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-            Elige cómo emitir: <strong>Binacional</strong> si el vehículo venezolano sale del país;
+            Elige cómo emitir: <strong>Binacional</strong> (solo vehículos de carga) si el vehículo venezolano sale del país;
             <strong> Extranjera</strong> solo si el OCR detectó placa extranjera.
           </p>
         </div>
