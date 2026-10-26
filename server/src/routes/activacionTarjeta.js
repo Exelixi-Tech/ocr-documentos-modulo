@@ -190,7 +190,11 @@ router.post('/autopago', async (req, res) => {
         data: data.data || null,
       });
     }
-    const venta = data.data && typeof data.data === 'object' ? data.data : null;
+    // nest-api envuelve la respuesta del controlador en {success,message,data}: desenvolver hasta la venta.
+    let venta = data.data && typeof data.data === 'object' ? data.data : null;
+    for (let i = 0; i < 3 && venta && !venta.xcodigo_unico && venta.data && typeof venta.data === 'object'; i++) {
+      venta = venta.data;
+    }
     // Sin datos de la venta (p. ej. NEST_API_URL apunta a otro servidor que responde 200 con HTML)
     // no se puede abrir el flujo: sería una "tarjeta" sin plan ni canal.
     if (!venta || !venta.xcodigo_unico || !venta.autopago) {
