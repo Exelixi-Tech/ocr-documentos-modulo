@@ -2,11 +2,13 @@ import { useWizardStore } from '../store/wizardStore';
 
 import { getProductConfig } from '../lib/product';
 import { publicAsset } from '../lib/app-base';
-
-const TOTAL_STEPS = 5;
+import { tarjetaYaPagada } from '../features/activacion-tarjeta/metadata';
 
 export function TopProgressBar() {
   const step = useWizardStore((s) => s.step);
+  const metadataCanal = useWizardStore((s) => s.metadataCanal);
+  // Tarjeta ya pagada en caja: 4 pasos (sin Pago).
+  const TOTAL_STEPS = tarjetaYaPagada(metadataCanal) ? 4 : 5;
   const segments = Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1);
   const safeStep = Math.min(step, TOTAL_STEPS);
   const product = getProductConfig();

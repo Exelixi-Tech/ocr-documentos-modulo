@@ -11,6 +11,7 @@ import {
 import { useWizardStore } from '../store/wizardStore';
 import { getProductConfig } from '../lib/product';
 import { toast } from '../store/toastStore';
+import { tarjetaYaPagada } from '../features/activacion-tarjeta/metadata';
 import { StepGlyph, StepKicker, StepperFxStyles, StepperProgress, STEPPER_TONE_EMERALD } from './StepperFx';
 
 /**
@@ -22,6 +23,9 @@ export function TopStepper() {
   const ocrDone = useWizardStore((s) => s.ocrDone);
   const documents = useWizardStore((s) => s.documents);
   const selectedPlan = useWizardStore((s) => s.selectedPlan);
+  const metadataCanal = useWizardStore((s) => s.metadataCanal);
+  // Tarjeta ya pagada en caja (Farmatodo): el paso Pago no existe en este flujo.
+  const sinPasoPago = tarjetaYaPagada(metadataCanal);
   const product = getProductConfig();
   const [navigating, setNavigating] = useState(false);
   const [navTarget, setNavTarget] = useState<number | null>(null);
@@ -41,7 +45,7 @@ export function TopStepper() {
       ? { n: 3, label: 'Vehículo', Icon: Car }
       : { n: 3, label: product.id === 'patrimoniales' ? 'Bien' : 'Asegurado', Icon: product.id === 'patrimoniales' ? Building2 : Users },
     { n: 4, label: 'Plan', Icon: ShieldCheck },
-    { n: 5, label: 'Pago', Icon: CreditCard },
+    ...(sinPasoPago ? [] : [{ n: 5, label: 'Pago', Icon: CreditCard }]),
   ];
 
   function canGoTo(target: number): boolean {
@@ -78,7 +82,8 @@ export function TopStepper() {
 
   const prevStep = getPreviousAllowedStep(step);
   const canPrev = prevStep != null && !navigating && canGoTo(prevStep);
-  const canNext = step < 5 && !navigating && canGoTo(step + 1);
+  const maxStep = sinPasoPago ? 4 : 5;
+  const canNext = step < maxStep && !navigating && canGoTo(step + 1);
 
   return (
     <div className="sfx-root hidden lg:block w-full mb-8 animate-fade-in">

@@ -60,3 +60,11 @@ export function readTarjetaMetadataCanal(): Record<string, unknown> | null {
     return null;
   }
 }
+
+/** Tarjeta pagada en caja (Farmatodo, bfactura=1): el flujo no pasa por el paso de Pago. */
+export function tarjetaYaPagada(metadataCanal?: Record<string, unknown> | null): boolean {
+  if (!metadataCanal) return false;
+  if (String(metadataCanal.flujo ?? '').trim().toLowerCase() !== 'tarjeta') return false;
+  const v = (x: unknown) => x === true || x === 1 || x === '1' || x === 'true';
+  return v(metadataCanal.skipPayment) || v(metadataCanal.bfactura);
+}
