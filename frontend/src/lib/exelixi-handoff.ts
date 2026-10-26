@@ -183,13 +183,16 @@ export function getFormularioContinueUrl(): string {
       params.set('product', product);
     }
 
-    const sid = current.searchParams.get('sid');
-    const nexusToken =
-      current.searchParams.get('nexus_token')
-      || sessionStorage.getItem(getModuleTokenKey());
+    // Flujo tarjeta/autopago: no arrastrar un token o sid de otra sesión (MarketPlace/SSO) que haya
+    // quedado en el navegador; su metadata (sin cplan) pisaría el plan y el canal de la tarjeta.
+    const tarjetaFlow = shouldUseTarjetaPublicApi();
+    const sid = tarjetaFlow ? null : current.searchParams.get('sid');
+    const nexusToken = tarjetaFlow
+      ? null
+      : (current.searchParams.get('nexus_token') || sessionStorage.getItem(getModuleTokenKey()));
     if (sid) params.set('sid', sid);
     if (nexusToken) params.set('nexus_token', nexusToken);
-    if (shouldUseTarjetaPublicApi()) params.set('flujo', 'tarjeta');
+    if (tarjetaFlow) params.set('flujo', 'tarjeta');
   } catch {
     try {
       const stored = sessionStorage.getItem('exelixi_product');
