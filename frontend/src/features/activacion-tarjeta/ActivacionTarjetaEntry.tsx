@@ -1,14 +1,20 @@
-﻿import { useState, type FormEvent } from 'react';
+﻿import { useEffect, useState, type FormEvent } from 'react';
 import { Loader2, Phone } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
 import { persistProductFromHints } from '../../lib/product';
 import { publicAsset } from '../../lib/app-base';
 import { toast } from '../../store/toastStore';
-import { validateCard } from './api';
+import { validateAutopago, validateCard } from './api';
 import { TARJETA_YA_ACTIVADA_CODE } from './tarjeta-estado';
-import { markTarjetaPublicSession, normalizeCodigoTarjeta, resolveTarjetaProductId } from './flow';
+import {
+  markTarjetaPublicSession,
+  normalizeCodigoTarjeta,
+  readAutopagoToken,
+  resolveTarjetaProductId,
+} from './flow';
 import { metadataFromTarjetaActivacion, persistTarjetaMetadataCanal } from './metadata';
 import { ctipoForTarjetaPlan, resolveTarjetaPlanVehicleKind } from './plan-vehicle';
+import type { TarjetaActivacion } from './types';
 
 const BRAND = {
   navyDeep: '#091133',
@@ -124,6 +130,65 @@ export function ActivacionTarjetaEntry() {
   const [codigo, setCodigo] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Autopago retail: el enlace del correo (?ap=) trae la compra ya pagada; no se pide código.
+  const [autopagoToken] = useState(() => readAutopagoToken());
+  const [autopagoChecking, setAutopagoChecking] = useState(() => Boolean(readAutopagoToken()));
+
+  /** Fija producto, canal y tarjeta en el wizard (tarjeta física o enlace de autopago). */
+  function aplicarTarjeta(tarjeta: TarjetaActivacion) {
+    const vehicleKind = resolveTarjetaPlanVehicleKind(tarjeta);
+    // El producto lo define la tarjeta: RCV (vehículo) o personas (Vida, AP, Funerario…).
+    const productId = resolveTarjetaProductId(tarjeta, vehicleKind);
+    if (!productId) {
+      throw new Error(
+        `El producto de esta tarjeta${tarjeta.nombreProducto ? ` (${tarjeta.nombreProducto})` : ''} `
+        + 'todavía no se puede activar en línea. Comunícate con La Mundial.',
+      );
+    }
+    persistProductFromHints({ product: productId });
+    const current = useWizardStore.getState().metadataCanal || {};
+    const canalMeta = metadataFromTarjetaActivacion(tarjeta, {
+      ...current,
+      tarjetaVehicleKind: vehicleKind,
+      product: productId,
+    });
+    setMetadataCanal(canalMeta);
+    persistTarjetaMetadataCanal(canalMeta);
+    if (productId === 'rcv' && vehicleKind) {
+      setVehicle({ ctipo: ctipoForTarjetaPlan(vehicleKind) });
+    }
+    setTarjeta(tarjeta);
+  }
+
+  useEffect(() => {
+    if (!autopagoToken) return;
+    let cancelled = false;
+    markTarjetaPublicSession();
+    validateAutopago(autopagoToken)
+      .then((tarjeta) => {
+        if (cancelled) return;
+        aplicarTarjeta(tarjeta);
+        toast.success(
+          'Compra verificada',
+          'Tu pago ya está registrado. Carga tus documentos para emitir la póliza.',
+          6000,
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : 'No se pudo verificar el enlace de emisión.';
+        setError(message);
+        toast.error('Enlace no válido', message, 8000);
+      })
+      .finally(() => {
+        if (!cancelled) setAutopagoChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autopagoToken]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const value = normalizeCodigoTarjeta(codigo);
@@ -137,28 +202,7 @@ export function ActivacionTarjetaEntry() {
     markTarjetaPublicSession();
     try {
       const tarjeta = await validateCard(value);
-      const vehicleKind = resolveTarjetaPlanVehicleKind(tarjeta);
-      // El producto lo define la tarjeta: RCV (vehículo) o personas (Vida, AP, Funerario…).
-      const productId = resolveTarjetaProductId(tarjeta, vehicleKind);
-      if (!productId) {
-        throw new Error(
-          `El producto de esta tarjeta${tarjeta.nombreProducto ? ` (${tarjeta.nombreProducto})` : ''} `
-          + 'todavía no se puede activar en línea. Comunícate con La Mundial.',
-        );
-      }
-      persistProductFromHints({ product: productId });
-      const current = useWizardStore.getState().metadataCanal || {};
-      const canalMeta = metadataFromTarjetaActivacion(tarjeta, {
-        ...current,
-        tarjetaVehicleKind: vehicleKind,
-        product: productId,
-      });
-      setMetadataCanal(canalMeta);
-      persistTarjetaMetadataCanal(canalMeta);
-      if (productId === 'rcv' && vehicleKind) {
-        setVehicle({ ctipo: ctipoForTarjetaPlan(vehicleKind) });
-      }
-      setTarjeta(tarjeta);
+      aplicarTarjeta(tarjeta);
       toast.success(
         'Tarjeta válida',
         tarjeta.bfactura === 1
@@ -203,19 +247,33 @@ export function ActivacionTarjetaEntry() {
               draggable={false}
             />
             <h1 className="mt-6 font-sans text-[1.4rem] font-extrabold leading-tight tracking-tight text-[#0F1A5A] sm:text-[1.6rem]">
-              Activación de tarjeta
+              {autopagoToken ? 'Emisión de tu póliza' : 'Activación de tarjeta'}
             </h1>
             <p className="mx-auto mt-2 max-w-[19rem] text-sm leading-relaxed text-slate-500">
-              Ingresa el código impreso en el reverso de tu tarjeta.
+              {autopagoToken
+                ? 'Estamos verificando tu compra en caja. Tu pago ya está aplicado.'
+                : 'Ingresa el código impreso en el reverso de tu tarjeta.'}
             </p>
           </div>
 
+          {autopagoChecking ? (
+            <div
+              role="status"
+              className="mt-7 flex items-center justify-center gap-3 rounded-2xl border border-slate-100 bg-[#f6f9fd] px-4 py-6 text-sm font-semibold text-[#0F1A5A]"
+            >
+              <Loader2 size={20} className="animate-spin" aria-hidden />
+              Verificando tu compra…
+            </div>
+          ) : (
+          <>
+          {!autopagoToken && (
           <div className="mt-7 flex items-center gap-4 rounded-2xl border border-slate-100 bg-[#f6f9fd] px-4 py-4 sm:px-5">
             <TarjetaCodigoHint />
             <p className="text-left text-sm leading-relaxed text-slate-600">
               El código está en el <strong className="text-[#0F1A5A]">reverso</strong>, junto al QR.
             </p>
           </div>
+          )}
 
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col">
             <label htmlFor="codigo-tarjeta" className="sr-only">
@@ -267,6 +325,8 @@ export function ActivacionTarjetaEntry() {
               )}
             </button>
           </form>
+          </>
+          )}
         </div>
       </div>
 

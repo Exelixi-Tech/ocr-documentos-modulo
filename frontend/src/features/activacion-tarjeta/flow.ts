@@ -2,13 +2,14 @@
  * Entrada del flujo RCV por tarjeta de farmacia.
  * No reemplaza el RCV actual: solo si la URL lo pide.
  *
- * Ej.: /ocr/?flujo=tarjeta  ·  /ocr/tarjeta
+ * Ej.: /ocr/?flujo=tarjeta  ·  /ocr/tarjeta  ·  /ocr/tarjeta?ap=<token> (autopago retail)
  */
 export function isTarjetaRcvEntry(): boolean {
   try {
     const params = new URLSearchParams(window.location.search);
     const flujo = (params.get('flujo') || params.get('entrada') || '').trim().toLowerCase();
     if (flujo === 'tarjeta') return true;
+    if (readAutopagoToken()) return true;
     return /\/tarjeta\/?$/.test(window.location.pathname.replace(/\/+$/, '') || '/');
   } catch {
     return false;
@@ -73,6 +74,22 @@ export function resolveTarjetaProductId(
   const cramo = String(tarjeta.cramo ?? '').trim();
   if (vehicleKind || !cramo || RCV_RAMOS.has(cramo)) return 'rcv';
   return 'funerario';
+}
+
+const AUTOPAGO_TOKEN_RE = /^[A-Za-z0-9_-]{16,80}$/;
+
+export function normalizeAutopagoToken(raw: unknown): string {
+  const t = String(raw ?? '').trim();
+  return AUTOPAGO_TOKEN_RE.test(t) ? t : '';
+}
+
+/** Token del enlace de autopago retail (`?ap=`): la venta en caja ya pagada. */
+export function readAutopagoToken(): string {
+  try {
+    return normalizeAutopagoToken(new URLSearchParams(window.location.search).get('ap'));
+  } catch {
+    return '';
+  }
 }
 
 /** El código de tarjeta es variado: no se valida formato, solo que no esté vacío. */

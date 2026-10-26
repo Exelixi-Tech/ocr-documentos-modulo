@@ -12,6 +12,25 @@ export interface TarjetaActivacion {
   nombreProducto: string | null;
   nfactura: string | null;
   raw: Record<string, unknown>;
+  /** Autopago retail: la "tarjeta" es el enlace de una venta en caja (pago ya aplicado). */
+  autopago?: TarjetaAutopago | null;
+}
+
+export interface TarjetaAutopagoCliente {
+  tipo_persona: string | null;
+  cci_rif: string | null;
+  xcliente: string | null;
+  xcorreo: string | null;
+  xtelefono: string | null;
+}
+
+export interface TarjetaAutopago {
+  token: string;
+  ncorrelativo: number;
+  total: number;
+  fventa: string | null;
+  expiresAt: string | null;
+  cliente: TarjetaAutopagoCliente;
 }
 
 export interface ValidateCardResponse {

@@ -4,13 +4,14 @@ import type { TarjetaActivacion } from './types';
 /**
  * Si la tarjeta pide factura (bfactura=1), el slot OCR de factura es obligatorio
  * y va aparte de cédula / licencia / certificado.
+ * Autopago retail: la factura ya la registró la caja (viene en el enlace), no se pide foto.
  */
 export function appendFacturaIfNeeded(
   requiredDocs: DocType[],
   optionalDocs: DocType[],
   tarjeta: TarjetaActivacion | null | undefined,
 ): { requiredDocs: DocType[]; optionalDocs: DocType[] } {
-  if (!tarjeta || tarjeta.bfactura !== 1) {
+  if (!tarjeta || tarjeta.bfactura !== 1 || tarjeta.autopago) {
     return { requiredDocs: [...requiredDocs], optionalDocs: [...optionalDocs] };
   }
   const required: DocType[] = requiredDocs.includes('factura')

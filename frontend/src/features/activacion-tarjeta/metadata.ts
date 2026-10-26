@@ -24,6 +24,15 @@ export function metadataFromTarjetaActivacion(
     nombre_producto:
       tarjeta.nombreProducto
       ?? (raw.nombre_producto != null ? String(raw.nombre_producto) : undefined),
+    // Autopago retail: Emisión quema el enlace en nest-api (no cards/activate) y la factura ya está validada.
+    ...(tarjeta.autopago
+      ? {
+          autopago: true,
+          autopago_token: tarjeta.autopago.token,
+          autopago_cliente: tarjeta.autopago.cliente,
+          ...(tarjeta.nfactura ? { nfactura: tarjeta.nfactura } : {}),
+        }
+      : {}),
     ...extras,
   };
 }
