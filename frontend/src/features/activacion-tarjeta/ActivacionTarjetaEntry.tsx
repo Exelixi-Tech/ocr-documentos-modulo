@@ -149,6 +149,16 @@ export function ActivacionTarjetaEntry() {
       );
     }
     persistProductFromHints({ product: productId });
+    // La tarjeta manda sobre un `?product=` previo en la URL (getProductId() lee la URL primero).
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get('product') !== productId) {
+        u.searchParams.set('product', productId);
+        window.history.replaceState(window.history.state, '', u.toString());
+      }
+    } catch {
+      /* ignore */
+    }
     const current = useWizardStore.getState().metadataCanal || {};
     const canalMeta = metadataFromTarjetaActivacion(tarjeta, {
       ...current,
