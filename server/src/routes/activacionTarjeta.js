@@ -4,6 +4,7 @@
  *
  *   POST /api/tarjeta/validate-card  { codigoTarjeta }
  *   POST /api/tarjeta/validate-bill  { xcodigo_unico, nfactura }
+ *   POST /api/tarjeta/autopago       { token }   → nest-api (venta en caja, enlace ?ap=)
  */
 const express = require('express');
 const axios = require('axios');
@@ -34,8 +35,21 @@ function cardsHeaders() {
   return headers;
 }
 
+function nestApiBaseUrl() {
+  return (
+    process.env.NEST_API_URL
+    || process.env.SYSIP_API_URL
+    || 'http://127.0.0.1:3002'
+  ).replace(/\/$/, '');
+}
+
 function normalizeCodigo(raw) {
   return String(raw || '').trim().replace(/\s+/g, '').slice(0, 80);
+}
+
+function normalizeAutopagoToken(raw) {
+  const t = String(raw || '').trim();
+  return /^[A-Za-z0-9_-]{16,80}$/.test(t) ? t : '';
 }
 
 function normalizeNfactura(raw) {
@@ -141,6 +155,52 @@ router.post('/validate-bill', async (req, res) => {
       success: false,
       code: 'FACTURA_LM_NETWORK',
       message: 'No se pudo verificar la factura. Inténtalo de nuevo.',
+    });
+  }
+});
+
+/**
+ * Autopago retail (Farmatodo): el enlace del correo trae un token en vez de código + factura.
+ * nest-api devuelve la compra con la misma forma que validate-card (bfactura=1, plan, canal, cliente).
+ */
+router.post('/autopago', async (req, res) => {
+  const token = normalizeAutopagoToken(req.body?.token);
+  if (!token) {
+    return res.status(400).json({
+      success: false,
+      code: 'AUTOPAGO_TOKEN',
+      message: 'El enlace de emisión no es válido.',
+    });
+  }
+
+  try {
+    const upstream = await axios.get(
+      `${nestApiBaseUrl()}/api/v1/autopago/emisiones/${encodeURIComponent(token)}`,
+      {
+        timeout: parseInt(process.env.LAMUNDIAL_TIMEOUT_MS, 10) || 20000,
+        validateStatus: () => true,
+      },
+    );
+    const data = upstream.data && typeof upstream.data === 'object' ? upstream.data : {};
+    if (upstream.status >= 400 || data.success === false) {
+      return res.status(upstream.status >= 400 ? upstream.status : 422).json({
+        success: false,
+        code: data.code || 'AUTOPAGO_NO_VALIDO',
+        message: data.message || 'El enlace de emisión no es válido o ya fue utilizado.',
+        data: data.data || null,
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: data.message || 'Compra verificada',
+      data: data.data || data,
+    });
+  } catch (err) {
+    console.error('[activacion-tarjeta] autopago:', err.message);
+    return res.status(502).json({
+      success: false,
+      code: 'AUTOPAGO_NETWORK',
+      message: 'No se pudo verificar el enlace de emisión. Inténtalo de nuevo.',
     });
   }
 });

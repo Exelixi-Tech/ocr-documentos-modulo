@@ -27,6 +27,15 @@ export function metadataFromTarjetaActivacion(
     ...(tarjeta.nfactura
       ? { nfactura: String(tarjeta.nfactura).replace(/\D/g, '').slice(0, 16) }
       : {}),
+    // Autopago retail: Emisión quema el enlace en nest-api (no cards/activate) y la factura ya está validada.
+    ...(tarjeta.autopago
+      ? {
+          autopago: true,
+          autopago_token: tarjeta.autopago.token,
+          autopago_cliente: tarjeta.autopago.cliente,
+          ...(tarjeta.nfactura ? { nfactura: tarjeta.nfactura } : {}),
+        }
+      : {}),
     ...extras,
   };
 }
