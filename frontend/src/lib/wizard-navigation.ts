@@ -15,12 +15,10 @@ const DEFAULT_REQUIRED: DocType[] = ['cedula', 'certificado'];
 
 /** Documentos obligatorios por producto cuando no hay config de admin. */
 export function getDefaultRequiredDocs(productId: string): DocType[] {
-  if (productId === 'funerario') {
-    // Viajero: un solo asegurado, basta la cédula del tomador.
-    return isViajeroPersonas() ? ['cedula'] : ['cedula', 'cedula_titular'];
-  }
   if (productId === 'patrimoniales') return ['cedula'];
-  return DEFAULT_REQUIRED;
+  if (productId !== 'funerario') return DEFAULT_REQUIRED;
+  // Viajero: un solo asegurado, basta la cédula del tomador.
+  return isViajeroPersonas() ? ['cedula'] : ['cedula', 'cedula_titular'];
 }
 
 /** Indica si los documentos OCR obligatorios están procesados. */
@@ -53,8 +51,6 @@ export function canNavigateToStep(
 
   // Los documentos ya se cargaron en OCR: no se vuelve al paso 1.
   if (targetStep === 1 && currentStep > 1) return false;
-
-  if (currentStep === 5 && targetStep < 5 && targetStep !== 4) return false;
 
   if (targetStep >= 2 && !areDocumentsComplete(snapshot)) return false;
 
@@ -100,9 +96,6 @@ export function getNavigationBlockReason(
     return 'Los documentos ya fueron cargados; no puedes volver a ese paso.';
   }
 
-  if (currentStep === 5 && targetStep < 5 && targetStep !== 4) {
-    return 'Desde el pago solo puedes volver al paso de plan para cambiarlo.';
-  }
   if (targetStep >= 2 && !areDocumentsComplete(snapshot)) {
     return 'Sube y procesa los documentos obligatorios antes de continuar.';
   }
