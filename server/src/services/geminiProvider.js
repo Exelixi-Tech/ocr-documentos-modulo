@@ -2,29 +2,30 @@
  * Gemini OCR provider — versión pro con fallback automático y reintentos.
  *
  * Estrategia para garantizar lectura al 100 %:
- *   1. Intenta primero con el modelo más capable (`gemini-2.5-pro` por default).
+ *   1. Intenta primero con el modelo principal (`gemini-3.8-flash` por default).
  *   2. Si falla por error transitorio (5xx, rate limit, timeout) reintenta 2x
  *      con backoff exponencial.
  *   3. Si falla de forma permanente o el resultado no tiene campos críticos,
- *      cae al siguiente modelo de la cadena: pro → flash → flash-lite.
+ *      cae al siguiente modelo de la cadena: 3.8-flash → 3.6-flash → 3.1-pro-preview.
  *   4. Solo declara fallo si TODOS los modelos de la cadena fallan.
  *
  * Variables de entorno:
  *   GEMINI_API_KEY   Requerido.
- *   GEMINI_MODEL     Opcional. Modelo principal. Default: gemini-2.5-pro.
+ *   GEMINI_MODEL     Opcional. Modelo principal. Default: gemini-3.8-flash.
  *   GEMINI_MODELS    Opcional. Cadena CSV de fallback. Default:
- *                    "gemini-2.5-pro,gemini-2.5-flash,gemini-2.5-flash-lite".
+ *                    "gemini-3.8-flash,gemini-3.6-flash,gemini-3.1-pro-preview".
+ *                    (Google retiró gemini-2.5-pro / 2.5-flash el 26-oct-2026: 404.)
  *   GEMINI_MAX_RETRIES Opcional. Reintentos por modelo. Default: 2.
  */
 
 const fs = require('fs/promises');
 const { GoogleGenAI, Type } = require('@google/genai');
 
-const DEFAULT_PRIMARY_MODEL = 'gemini-2.5-pro';
+const DEFAULT_PRIMARY_MODEL = 'gemini-3.8-flash';
 const DEFAULT_FALLBACK_CHAIN = [
-  'gemini-2.5-pro',
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
+  'gemini-3.8-flash',
+  'gemini-3.6-flash',
+  'gemini-3.1-pro-preview',
 ];
 
 const SUPPORTED_MIME = new Set([
