@@ -224,6 +224,53 @@ export function ActivacionTarjetaEntry() {
     }
   }
 
+  // Autopago: sin hero ni animación (evita el parpadeo tarjeta → OCR); solo verificación o error.
+  if (autopagoToken) {
+    return (
+      <div
+        role="dialog"
+        aria-label="Emisión de tu póliza"
+        className="fixed inset-0 z-[70] flex min-h-[100dvh] flex-col bg-white"
+      >
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <img
+            src={LOGO_LA_MUNDIAL}
+            alt="La Mundial de Seguros"
+            className="h-12 w-auto object-contain sm:h-14"
+            draggable={false}
+          />
+          {autopagoChecking ? (
+            <div role="status" className="mt-8 flex flex-col items-center gap-3">
+              <Loader2 size={28} className="animate-spin text-[#2E6DBF]" aria-hidden />
+              <p className="text-sm font-semibold text-[#0F1A5A]">Verificando tu compra…</p>
+            </div>
+          ) : (
+            <div className="mt-8 w-full max-w-md">
+              <h1 className="font-sans text-[1.3rem] font-extrabold leading-tight text-[#0F1A5A]">
+                No pudimos verificar tu compra
+              </h1>
+              <p
+                role="alert"
+                className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700"
+              >
+                {error || 'El enlace de emisión no es válido.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl text-sm font-bold uppercase tracking-[0.12em] text-white"
+                style={{ background: `linear-gradient(180deg, ${BRAND.blueMid} 0%, #1B3E9E 100%)` }}
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+        </div>
+        <TarjetaContactFooter />
+      </div>
+    );
+  }
+
   return (
     <div
       role="dialog"
@@ -247,33 +294,19 @@ export function ActivacionTarjetaEntry() {
               draggable={false}
             />
             <h1 className="mt-6 font-sans text-[1.4rem] font-extrabold leading-tight tracking-tight text-[#0F1A5A] sm:text-[1.6rem]">
-              {autopagoToken ? 'Emisión de tu póliza' : 'Activación de tarjeta'}
+              Activación de tarjeta
             </h1>
             <p className="mx-auto mt-2 max-w-[19rem] text-sm leading-relaxed text-slate-500">
-              {autopagoToken
-                ? 'Estamos verificando tu compra en caja. Tu pago ya está aplicado.'
-                : 'Ingresa el código impreso en el reverso de tu tarjeta.'}
+              Ingresa el código impreso en el reverso de tu tarjeta.
             </p>
           </div>
 
-          {autopagoChecking ? (
-            <div
-              role="status"
-              className="mt-7 flex items-center justify-center gap-3 rounded-2xl border border-slate-100 bg-[#f6f9fd] px-4 py-6 text-sm font-semibold text-[#0F1A5A]"
-            >
-              <Loader2 size={20} className="animate-spin" aria-hidden />
-              Verificando tu compra…
-            </div>
-          ) : (
-          <>
-          {!autopagoToken && (
           <div className="mt-7 flex items-center gap-4 rounded-2xl border border-slate-100 bg-[#f6f9fd] px-4 py-4 sm:px-5">
             <TarjetaCodigoHint />
             <p className="text-left text-sm leading-relaxed text-slate-600">
               El código está en el <strong className="text-[#0F1A5A]">reverso</strong>, junto al QR.
             </p>
           </div>
-          )}
 
           <form onSubmit={handleSubmit} className="mt-7 flex flex-col">
             <label htmlFor="codigo-tarjeta" className="sr-only">
@@ -325,8 +358,6 @@ export function ActivacionTarjetaEntry() {
               )}
             </button>
           </form>
-          </>
-          )}
         </div>
       </div>
 
