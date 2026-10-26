@@ -240,41 +240,48 @@ export function ActivacionTarjetaEntry() {
       <div
         role="dialog"
         aria-label="Emisión de tu póliza"
-        className="fixed inset-0 z-[70] flex min-h-[100dvh] flex-col bg-white"
+        className="fixed inset-0 z-[70] flex min-h-[100dvh] flex-col bg-[#f3f6fc]"
       >
-        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-          <img
-            src={LOGO_LA_MUNDIAL}
-            alt="La Mundial de Seguros"
-            className="h-12 w-auto object-contain sm:h-14"
-            draggable={false}
-          />
-          {autopagoChecking ? (
-            <div role="status" className="mt-8 flex flex-col items-center gap-3">
-              <Loader2 size={28} className="animate-spin text-[#2E6DBF]" aria-hidden />
-              <p className="text-sm font-semibold text-[#0F1A5A]">Verificando tu compra…</p>
-            </div>
-          ) : (
-            <div className="mt-8 w-full max-w-md">
-              <h1 className="font-sans text-[1.3rem] font-extrabold leading-tight text-[#0F1A5A]">
-                No pudimos verificar tu compra
-              </h1>
-              <p
-                role="alert"
-                className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-medium text-rose-700"
-              >
-                {error || 'El enlace de emisión no es válido.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center rounded-xl text-sm font-bold uppercase tracking-[0.12em] text-white"
-                style={{ background: `linear-gradient(180deg, ${BRAND.blueMid} 0%, #1B3E9E 100%)` }}
-              >
-                Reintentar
-              </button>
-            </div>
-          )}
+        <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6">
+          <div className="w-full max-w-[34rem] rounded-[28px] bg-white px-6 py-10 text-center shadow-[0_24px_60px_-28px_rgba(9,17,51,0.35)] sm:px-12 sm:py-14">
+            <img
+              src={LOGO_LA_MUNDIAL}
+              alt="La Mundial de Seguros"
+              className="mx-auto h-20 w-auto object-contain sm:h-24"
+              draggable={false}
+            />
+            {autopagoChecking ? (
+              <div role="status" className="mt-10 flex flex-col items-center gap-5">
+                <Loader2 size={56} strokeWidth={2.5} className="animate-spin text-[#2E6DBF]" aria-hidden />
+                <h1 className="font-sans text-2xl font-extrabold leading-tight tracking-tight text-[#0F1A5A] sm:text-[1.75rem]">
+                  Verificando tu compra…
+                </h1>
+                <p className="max-w-[24rem] text-base leading-relaxed text-slate-500">
+                  Tu pago en caja ya está registrado. En un momento podrás cargar tus documentos y emitir tu póliza.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-10">
+                <h1 className="font-sans text-2xl font-extrabold leading-tight tracking-tight text-[#0F1A5A]">
+                  No pudimos verificar tu compra
+                </h1>
+                <p
+                  role="alert"
+                  className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-base font-medium text-rose-700"
+                >
+                  {error || 'El enlace de emisión no es válido.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-6 inline-flex min-h-[54px] w-full items-center justify-center rounded-xl text-sm font-bold uppercase tracking-[0.12em] text-white shadow-[0_14px_30px_-12px_rgba(27,62,158,0.75)] hover:brightness-110"
+                  style={{ background: `linear-gradient(180deg, ${BRAND.blueMid} 0%, #1B3E9E 100%)` }}
+                >
+                  Reintentar
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <TarjetaContactFooter />
       </div>
