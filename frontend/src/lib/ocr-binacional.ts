@@ -83,8 +83,9 @@ export function resolveTipoPlacaFromCert(
 }
 
 /**
- * Con carnet binacional (VE hacia CO): solo certificado es obligatorio;
- * cédula y licencia pasan a opcionales.
+ * Con carnet binacional (VE hacia CO) o documento vehicular extranjero (Licencia de
+ * Tránsito CO): solo el certificado es obligatorio; cédula y licencia pasan a opcionales.
+ * El propietario (nombre e identificación) se toma del mismo documento.
  */
 export function adjustDocsForBinacionalCarnet(
   requiredDocs: DocType[],
@@ -101,7 +102,8 @@ export function adjustDocsForBinacionalCarnet(
   const cert = certState?.ocr as CertOcr | undefined;
   const certDone = certState?.status === 'done';
 
-  if (!certDone || (!carnetBinacionalMode && !isBinacionalCarnet(cert))) {
+  const soloCertificado = carnetBinacionalMode || isBinacionalCarnet(cert) || isExtranjeroCarnet(cert);
+  if (!certDone || !soloCertificado) {
     return { requiredDocs: [...requiredDocs], optionalDocs: [...optionalDocs] };
   }
 
