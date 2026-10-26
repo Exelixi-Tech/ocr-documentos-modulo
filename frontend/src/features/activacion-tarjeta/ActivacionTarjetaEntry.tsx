@@ -27,6 +27,9 @@ const BRAND = {
   btnTo: '#4A5F7A',
 } as const;
 
+/** Tiempo mínimo en pantalla de "Verificando tu compra…" (autopago). */
+const AUTOPAGO_MIN_VERIFY_MS = 1500;
+
 const WOMAN_CUTOUT = publicAsset('tarjeta/mujer-tarjeta.png');
 const LOGO_LA_MUNDIAL = publicAsset('logo-lamundial.png');
 const TARJETICA_FRENTE = publicAsset('tarjeta/tarjetica-frente.png');
@@ -164,7 +167,14 @@ export function ActivacionTarjetaEntry() {
     if (!autopagoToken) return;
     let cancelled = false;
     markTarjetaPublicSession();
+    // La verificación tarda milisegundos: se sostiene la pantalla un mínimo para que se lea.
+    const startedAt = Date.now();
+    const holdMinimum = <T,>(value: T): Promise<T> =>
+      new Promise((resolve) => {
+        window.setTimeout(() => resolve(value), Math.max(0, AUTOPAGO_MIN_VERIFY_MS - (Date.now() - startedAt)));
+      });
     validateAutopago(autopagoToken)
+      .then(holdMinimum)
       .then((tarjeta) => {
         if (cancelled) return;
         aplicarTarjeta(tarjeta);
