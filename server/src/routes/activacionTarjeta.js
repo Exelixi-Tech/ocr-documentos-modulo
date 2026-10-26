@@ -190,10 +190,23 @@ router.post('/autopago', async (req, res) => {
         data: data.data || null,
       });
     }
+    const venta = data.data && typeof data.data === 'object' ? data.data : null;
+    // Sin datos de la venta (p. ej. NEST_API_URL apunta a otro servidor que responde 200 con HTML)
+    // no se puede abrir el flujo: sería una "tarjeta" sin plan ni canal.
+    if (!venta || !venta.xcodigo_unico || !venta.autopago) {
+      console.error(
+        `[activacion-tarjeta] autopago: respuesta sin datos de venta desde ${nestApiBaseUrl()} (HTTP ${upstream.status}, tipo ${typeof upstream.data})`,
+      );
+      return res.status(502).json({
+        success: false,
+        code: 'AUTOPAGO_RESPUESTA_INVALIDA',
+        message: 'No se pudo leer la compra desde nest-api. Revisa NEST_API_URL de ocr-api.',
+      });
+    }
     return res.status(200).json({
       success: true,
       message: data.message || 'Compra verificada',
-      data: data.data || data,
+      data: venta,
     });
   } catch (err) {
     console.error('[activacion-tarjeta] autopago:', err.message);
