@@ -2,28 +2,30 @@
  * Gemini OCR provider — versión pro con fallback automático y reintentos.
  *
  * Estrategia para garantizar lectura al 100 %:
- *   1. Intenta primero con el modelo principal (`gemini-3.8-flash` por default).
+ *   1. Intenta primero con el modelo principal (`gemini-3.6-flash` por default).
  *   2. Si falla por error transitorio (5xx, rate limit, timeout) reintenta 2x
  *      con backoff exponencial.
  *   3. Si falla de forma permanente o el resultado no tiene campos críticos,
- *      cae al siguiente modelo de la cadena: 3.8-flash → 3.6-flash → 3.1-pro-preview.
- *   4. Solo declara fallo si TODOS los modelos de la cadena fallan.
+ *      cae al siguiente modelo de la cadena: 3.6-flash → 3.1-pro-preview.
+ *   4. Solo declara fallo si TODOS los modelos de la cadena fallan (el carnet con
+ *      placa se devuelve igual con lo mejor que se leyó).
  *
  * Variables de entorno:
  *   GEMINI_API_KEY   Requerido.
- *   GEMINI_MODEL     Opcional. Modelo principal. Default: gemini-3.8-flash.
+ *   GEMINI_MODEL     Opcional. Modelo principal. Default: gemini-3.6-flash.
  *   GEMINI_MODELS    Opcional. Cadena CSV de fallback. Default:
- *                    "gemini-3.8-flash,gemini-3.6-flash,gemini-3.1-pro-preview".
- *                    (Google retiró gemini-2.5-pro / 2.5-flash el 26-oct-2026: 404.)
+ *                    "gemini-3.6-flash,gemini-3.1-pro-preview".
+ *                    (Google retiró gemini-2.5-pro / 2.5-flash el 26-oct-2026: 404.
+ *                    gemini-3.8-flash no lee bien el carnet INTT: sin placa o placa/VIN
+ *                    inventados, sin modelo ni color — prueba en el 121 el 27-oct.)
  *   GEMINI_MAX_RETRIES Opcional. Reintentos por modelo. Default: 2.
  */
 
 const fs = require('fs/promises');
 const { GoogleGenAI, Type } = require('@google/genai');
 
-const DEFAULT_PRIMARY_MODEL = 'gemini-3.8-flash';
+const DEFAULT_PRIMARY_MODEL = 'gemini-3.6-flash';
 const DEFAULT_FALLBACK_CHAIN = [
-  'gemini-3.8-flash',
   'gemini-3.6-flash',
   'gemini-3.1-pro-preview',
 ];
@@ -542,7 +544,9 @@ function normalizeCertificadoFields(fields) {
 const CRITICAL_FIELDS = {
   cedula:      ['identificacion', 'nombre', 'apellido'],
   licencia:    ['numeroLicencia'],
-  certificado: ['placa'],
+  // Marca y modelo también: una lectura con placa pero sin modelo suele ser una lectura
+  // mala (VIN/placa inventados) y debe pasar al siguiente modelo.
+  certificado: ['placa', 'marca', 'modelo'],
   rif:         ['rif'],
   factura:     ['nfactura'],
 };
@@ -1125,6 +1129,9 @@ async function extract(filePath, mimetype, docType, opts = {}) {
   const overallStart = Date.now();
   const attemptsLog = [];
   let lastErr;
+  // Carnet con placa pero sin marca/modelo: se guarda la lectura más completa por si
+  // ningún modelo de la cadena la mejora (mejor precargar algo que bloquear al cliente).
+  let bestPartial = null;
 
   for (const model of chain) {
     try {
@@ -1166,6 +1173,10 @@ async function extract(filePath, mimetype, docType, opts = {}) {
         `intentando siguiente modelo si hay`
       );
       lastErr = new Error(`Campos críticos vacíos: ${validation.missing.join(', ')}`);
+      if (docType === 'certificado' && !validation.missing.includes('placa')
+        && (!bestPartial || validation.missing.length < bestPartial.missing)) {
+        bestPartial = { fields: r.fields, model, singleCallMs: r.elapsedMs, missing: validation.missing.length };
+      }
     } catch (err) {
       attemptsLog.push({
         model,
@@ -1183,6 +1194,19 @@ async function extract(filePath, mimetype, docType, opts = {}) {
   // Buscamos el último intento con fields parseados aunque falten críticos:
   // re-llamamos al primer modelo y devolvemos lo que sea.
   // Para no encarecer, simplemente lanzamos el último error con el log.
+  if (bestPartial) {
+    return {
+      fields: bestPartial.fields,
+      meta: {
+        provider: 'gemini',
+        model: bestPartial.model,
+        elapsedMs: Date.now() - overallStart,
+        singleCallMs: bestPartial.singleCallMs,
+        chainAttempts: attemptsLog,
+        partial: true,
+      },
+    };
+  }
   const errorMsg =
     lastErr ? lastErr.message : 'Todos los modelos Gemini fallaron sin error específico';
   const enhancedErr = new Error(
