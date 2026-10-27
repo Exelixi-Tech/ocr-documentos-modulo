@@ -18,10 +18,12 @@ function allowInternal(req) {
   return isLoopback(req);
 }
 
+/** Mismo criterio que la subida (routes/ocr.js): nombre → fallback → empresa-<id>. */
 function resolveEmpresaNombre(req, body) {
+  const empresaId = String(body.empresaId ?? '').trim();
   return expedienteFs.sanitizeFolderName(
     body.empresaNombre || process.env.EXPEDIENTE_EMPRESA_FALLBACK,
-    'empresa-sin-nombre',
+    empresaId ? `empresa-${empresaId}` : 'empresa-sin-nombre',
   );
 }
 
