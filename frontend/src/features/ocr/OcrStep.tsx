@@ -479,7 +479,8 @@ function UploadDocCard({
         const prev = useWizardStore.getState().tarjeta!;
         useWizardStore.getState().setTarjeta({ ...prev, nfactura });
         const meta = useWizardStore.getState().metadataCanal || {};
-        const metaWithFactura = { ...meta, nfactura };
+        // xfoto_factura: Emisión la archiva con la póliza aunque se haya subido antes que la cédula (_inbox).
+        const metaWithFactura = { ...meta, nfactura, ...(result.file?.url ? { xfoto_factura: result.file.url } : {}) };
         useWizardStore.getState().setMetadataCanal(metaWithFactura);
         persistTarjetaMetadataCanal(metaWithFactura);
         toast.success('Factura validada', `Número ${nfactura}`, 4000);

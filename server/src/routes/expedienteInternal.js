@@ -96,6 +96,8 @@ router.post('/', (req, res, next) => {
       cnpoliza: body.cnpoliza ?? null,
       cnrecibo: body.cnrecibo ?? null,
       nfactura: body.nfactura ? String(body.nfactura) : null,
+      // Tarjeta bfactura=1 (no autopago): la verificación exige factura.* en el expediente.
+      ...(typeof body.facturaRequerida === 'boolean' ? { factura_requerida: body.facturaRequerida } : {}),
       emision: cleanLinks(body.emisionLinks),
     });
     console.log(
