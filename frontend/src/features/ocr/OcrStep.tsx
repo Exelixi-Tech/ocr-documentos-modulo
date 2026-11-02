@@ -21,7 +21,6 @@ import {
 import { getProductConfig } from '../../lib/product';
 import { aceptaRifEnCedula, labelConRif } from '../../lib/rif-en-cedula';
 import { isViajeroPersonas, resolvePersonasProductLabel } from '../../lib/personas-product-label';
-import { aceptaRifEnCedula, labelConRif } from '../../lib/rif-en-cedula';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
 import {
