@@ -3,7 +3,8 @@ import { readStoredBuilderProduct } from './builder-catalog';
 
 /**
  * Productos donde el slot de cédula acepta también RIF de empresa (persona jurídica).
- * Hoy solo patrimoniales. RCV y funerario siguen con cédula + RIF opcional aparte.
+ * Patrimoniales y RCV (persona jurídica toma el RIF en el slot de cédula).
+ * Funerario y personas siguen solo con cédula.
  * Ampliable sin código con VITE_OCR_RIF_EN_CEDULA_PRODUCTOS (ids separados por coma).
  */
 const EXTRA_PRODUCTOS = new Set(
@@ -34,7 +35,11 @@ export function aceptaRifEnCedula(): boolean {
   const id = String(getProductId());
   if (id === 'patrimoniales' || EXTRA_PRODUCTOS.has(id)) return true;
   if (isPatrimonialSession()) return true;
-  return readStoredBuilderProduct()?.branch === 'PATRIMONIAL';
+  const builder = readStoredBuilderProduct();
+  if (builder?.branch === 'PATRIMONIAL') return true;
+  // RCV: solo el flujo RCV (sin producto del builder o con ramo de vehículo); nunca personas/funerario.
+  if (id === 'rcv') return !builder || builder.branch === 'RCV_OBLIGATORIO';
+  return false;
 }
 
 /** "Cédula del tomador" → "Cédula o RIF del tomador". */
