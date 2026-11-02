@@ -20,6 +20,7 @@
 
 const fs = require('fs/promises');
 const { GoogleGenAI, Type } = require('@google/genai');
+const { aplicarGuardRif } = require('./rifNormalizer');
 
 const DEFAULT_PRIMARY_MODEL = 'gemini-3.8-flash';
 const DEFAULT_FALLBACK_CHAIN = [
@@ -270,6 +271,8 @@ function normalizeCedulaFields(fields) {
 
   const fechaNac = normalizeFechaNacimientoOcr(fields.fechaNacimiento);
   fields.fechaNacimiento = fechaNac;
+  // RIF jurídico: descarta firma/comprobante, exige 9 dígitos, nombre = razón social.
+  aplicarGuardRif(fields);
   return fields;
 }
 
@@ -692,6 +695,31 @@ const SCHEMAS = {
         description:
           'V=venezolano, E=extranjero/colombiano (C.C. Colombia), J=juridico/empresa, G=gubernamental, C=comunal, P=pasaporte',
       },
+      direccionFiscal: {
+        type: Type.STRING,
+        description:
+          'Solo RIF: texto tras "DOMICILIO FISCAL" SIN el estado ni "ZONA POSTAL". Null si es cédula.',
+      },
+      estadoFiscal: {
+        type: Type.STRING,
+        description: 'Solo RIF: estado de Venezuela al final del domicilio fiscal (ej. NUEVA ESPARTA, DISTRITO CAPITAL).',
+      },
+      zonaPostal: {
+        type: Type.STRING,
+        description: 'Solo RIF: 4 dígitos tras "ZONA POSTAL".',
+      },
+      fechaInscripcion: {
+        type: Type.STRING,
+        description: 'Solo RIF: FECHA DE INSCRIPCIÓN en YYYY-MM-DD (el impreso es DD/MM/YYYY).',
+      },
+      fechaVencimiento: {
+        type: Type.STRING,
+        description: 'Solo RIF: FECHA DE VENCIMIENTO en YYYY-MM-DD. Null si no aparece.',
+      },
+      nComprobante: {
+        type: Type.STRING,
+        description: 'Solo RIF: N° COMPROBANTE (NO es el RIF ni la identificación).',
+      },
       paisEmisor: {
         type: Type.STRING,
         enum: ['VE', 'CO'],
@@ -871,6 +899,40 @@ const SCHEMAS = {
         type: Type.STRING,
         description: 'Razon social o nombre completo del contribuyente',
       },
+      identificacion: {
+        type: Type.STRING,
+        description: 'Solo los 9 digitos del RIF (sin letra ni guiones). NUNCA el codigo de FIRMA AUTORIZADA ni el N° COMPROBANTE.',
+      },
+      tipoDoc: {
+        type: Type.STRING,
+        enum: ['V', 'E', 'J', 'G', 'C', 'P'],
+        description: 'Letra del RIF: J=juridico, G=gubernamental, C=comunal, V/E=persona natural',
+      },
+      direccionFiscal: {
+        type: Type.STRING,
+        description:
+          'Solo RIF: texto tras "DOMICILIO FISCAL" SIN el estado ni "ZONA POSTAL". Null si es cédula.',
+      },
+      estadoFiscal: {
+        type: Type.STRING,
+        description: 'Solo RIF: estado de Venezuela al final del domicilio fiscal (ej. NUEVA ESPARTA, DISTRITO CAPITAL).',
+      },
+      zonaPostal: {
+        type: Type.STRING,
+        description: 'Solo RIF: 4 dígitos tras "ZONA POSTAL".',
+      },
+      fechaInscripcion: {
+        type: Type.STRING,
+        description: 'Solo RIF: FECHA DE INSCRIPCIÓN en YYYY-MM-DD (el impreso es DD/MM/YYYY).',
+      },
+      fechaVencimiento: {
+        type: Type.STRING,
+        description: 'Solo RIF: FECHA DE VENCIMIENTO en YYYY-MM-DD. Null si no aparece.',
+      },
+      nComprobante: {
+        type: Type.STRING,
+        description: 'Solo RIF: N° COMPROBANTE (NO es el RIF ni la identificación).',
+      },
     },
     required: ['documentoTipo'],
   },
@@ -954,6 +1016,12 @@ const PROMPTS = {
     'identificacion = solo los digitos del RIF (sin letra ni guiones). ' +
     'tipoDoc = primera letra del RIF ("J", "V", "G", "E" o "C"). ' +
     'Si es persona jurídica o empresa: razonSocial = nombre de la empresa / razón social; nombre = razonSocial; apellido = null; fechaNacimiento = null; sexo = null; estadoCivil = null. ' +
+    'REGLAS RIF: el RIF es la letra J/G/V/E/C seguida de 9 digitos (con o sin guiones, o tras "RIF:"). ' +
+    'IGNORA el codigo de 10 digitos + guion + 3 letras junto a "FIRMA AUTORIZADA" o "SISTEMA" (ej. 3313005495-IKX): NO es el RIF. ' +
+    'IGNORA el N° COMPROBANTE: va solo en nComprobante. ' +
+    'razonSocial = texto a la derecha del RIF (formato clasico) o la linea siguiente a "RIF:" (RIF Digital v2.0). ' +
+    'direccionFiscal = texto tras "DOMICILIO FISCAL" sin el estado ni la zona postal; estadoFiscal = estado de Venezuela al final del domicilio; ' +
+    'zonaPostal = 4 digitos tras "ZONA POSTAL". fechaInscripcion y fechaVencimiento en YYYY-MM-DD (impreso DD/MM/YYYY). ' +
     'Si es persona natural: nombre y apellido del contribuyente si aparecen. NUNCA inventes datos.',
   licencia:
     VALIDATION_PREAMBLE +
@@ -1000,7 +1068,14 @@ const PROMPTS = {
   rif:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: REGISTRO UNICO DE INFORMACION FISCAL (RIF) venezolano (SENIAT). ' +
-    'Mantiene el formato canonico con guiones (ej. J-12345678-9).',
+    'Mantiene el formato canonico con guiones (ej. J-12345678-9). identificacion = solo los 9 digitos; tipoDoc = la letra. ' +
+    'REGLAS RIF: el RIF es la letra J/G/V/E/C seguida de 9 digitos (con o sin guiones, o tras "RIF:"). ' +
+    'IGNORA el codigo de 10 digitos + guion + 3 letras junto a "FIRMA AUTORIZADA" o "SISTEMA" (ej. 3313005495-IKX): NO es el RIF. ' +
+    'IGNORA el N° COMPROBANTE: va solo en nComprobante. ' +
+    'razonSocial = texto a la derecha del RIF (formato clasico) o la linea siguiente a "RIF:" (RIF Digital v2.0). ' +
+    'direccionFiscal = texto tras "DOMICILIO FISCAL" sin el estado ni la zona postal; estadoFiscal = estado de Venezuela al final del domicilio; ' +
+    'zonaPostal = 4 digitos tras "ZONA POSTAL". fechaInscripcion y fechaVencimiento en YYYY-MM-DD (impreso DD/MM/YYYY). ' +
+    'Si es persona juridica, apellido = null.',
   factura:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: FACTURA FISCAL venezolana (ticket termico de farmacia o comercio). ' +
@@ -1068,7 +1143,7 @@ async function callGeminiWithRetry(model, docType, base64, mimetype, schemaKey =
       if (docType === 'certificado' && parsed) {
         normalizeCertificadoFields(parsed);
       }
-      if (docType === 'cedula' && parsed) {
+      if ((docType === 'cedula' || docType === 'rif') && parsed) {
         normalizeCedulaFields(parsed);
       }
       if (docType === 'licencia' && parsed) {
@@ -1193,4 +1268,10 @@ async function extract(filePath, mimetype, docType, opts = {}) {
   throw enhancedErr;
 }
 
-module.exports = { extract, SUPPORTED_MIME, getModelChain };
+module.exports = {
+  extract,
+  SUPPORTED_MIME,
+  getModelChain,
+  /** Solo para tests. */
+  _internal: { normalizeCedulaFields, validateCriticalFields },
+};

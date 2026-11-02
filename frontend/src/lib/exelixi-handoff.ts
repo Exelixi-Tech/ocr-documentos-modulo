@@ -36,6 +36,13 @@ export interface OcrFields {
   tipoPlaca?: 'nacional' | 'extranjera' | 'binacional';
   rif?: string;
   razonSocial?: string;
+  /** RIF (SENIAT): domicilio fiscal sin estado ni zona postal. */
+  direccionFiscal?: string | null;
+  estadoFiscal?: string | null;
+  zonaPostal?: string | null;
+  fechaInscripcion?: string | null;
+  fechaVencimiento?: string | null;
+  nComprobante?: string | null;
   fechaNacimiento?: string;
   sexo?: string;
   estadoCivil?: string;
