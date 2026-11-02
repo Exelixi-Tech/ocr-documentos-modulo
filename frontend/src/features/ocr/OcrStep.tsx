@@ -967,6 +967,9 @@ export function OcrStep() {
           fechaNac: cedula.fechaNacimiento ?? '',
           sexo: isPJ ? '' : matchCatalog(cedula.sexo, sexoOpts),
           estadoCivil: isPJ ? '' : matchCatalog(cedula.estadoCivil, ecOpts),
+          // RIF jurídico: domicilio fiscal y estado del SENIAT precargan la dirección del tomador.
+          ...(isPJ && cedula.direccionFiscal ? { direccion: cedula.direccionFiscal } : {}),
+          ...(isPJ && cedula.estadoFiscal ? { estado: cedula.estadoFiscal } : {}),
         });
       }
       // El vehículo sólo aplica a productos con vehículo (RCV). Funerario no

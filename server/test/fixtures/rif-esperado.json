@@ -1,0 +1,36 @@
+{
+  "rif-seniat-clasico-unisa": {
+    "documentoTipo": "rif",
+    "tipoDoc": "J",
+    "rif": "J-31300549-5",
+    "identificacion": "313005495",
+    "razonSocial": "UNIDAD INTEGRAL DE SALUD UNISA, C.A.",
+    "nombre": "UNIDAD INTEGRAL DE SALUD UNISA, C.A.",
+    "apellido": null,
+    "direccionFiscal": "AV EL CALVARIO EDIF UNISA S/N PISO PB OF ADMINISTRACION URB EL PILAR, LOS ROBLES EL PILAR (LOS ROBLES)",
+    "estadoFiscal": "NUEVA ESPARTA",
+    "zonaPostal": "6307",
+    "fechaInscripcion": "2005-03-21",
+    "fechaActualizacion": "2024-03-14",
+    "fechaVencimiento": "2027-03-14",
+    "nComprobante": "201609L0000030994895",
+    "_noDebeSer": { "identificacion": "3313005495", "comentario": "3313005495-IKX es el codigo de FIRMA AUTORIZADA, no el RIF" }
+  },
+  "rif-digital-v2-exelixi": {
+    "documentoTipo": "rif",
+    "tipoDoc": "J",
+    "rif": "J-50697333-2",
+    "identificacion": "506973332",
+    "razonSocial": "EXELIXI TECH, C.A.",
+    "nombre": "EXELIXI TECH, C.A.",
+    "apellido": null,
+    "direccionFiscal": "AV URDANETA EDIF PASAJE LA SEGURIDAD PISO PB LOCAL 7 URB . CARACAS",
+    "estadoFiscal": "DISTRITO CAPITAL",
+    "zonaPostal": "1010",
+    "fechaInscripcion": "2025-05-14",
+    "fechaActualizacion": "2026-08-20",
+    "fechaVencimiento": null,
+    "nComprobante": "202506Q0000068655110",
+    "_noDebeSer": { "identificacion": "3506973332", "comentario": "3506973332-CKY es el codigo de FIRMA AUTORIZADA / SISTEMA, no el RIF" }
+  }
+}
