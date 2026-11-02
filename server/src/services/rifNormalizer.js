@@ -182,7 +182,8 @@ function aplicarGuardRif(fields) {
     PJ_TIPOS.has(tipo) ||
     /^[JGC]/i.test(String(fields.rif || '')) ||
     FIRMA_RE.test(String(fields.rif || '').toUpperCase()) ||
-    Boolean(fields.nComprobante);
+    Boolean(fields.nComprobante) ||
+    PJ_TIPOS.has(findRif(`${fields.razonSocial || ''} ${fields.nombre || ''}`)?.letra);
   if (!esRif) return fields;
 
   // 1) El campo rif puede traer la firma (3313005495-IKX): se descarta o se recupera.
@@ -196,6 +197,25 @@ function aplicarGuardRif(fields) {
   } else {
     const r = findRif(rifTxt);
     if (r) { rifLetra = r.letra; rifDigitos = r.digitos; }
+  }
+  // Formato clásico SENIAT ("J313005495 UNIDAD INTEGRAL ..."): Gemini a veces deja el RIF
+  // pegado a la razón social / nombre o con la letra en identificacion. Se recupera de ahí.
+  if (!rifDigitos) {
+    for (const k of ['identificacion', 'razonSocial', 'nombre', 'apellido', 'textoCompleto', 'rawText']) {
+      const txt = stripAccents(String(fields[k] || '')).toUpperCase();
+      if (!txt || FIRMA_RE.test(txt)) continue;
+      const r = findRif(txt);
+      if (r) { rifLetra = r.letra; rifDigitos = r.digitos; break; }
+    }
+  }
+  if (rifDigitos) {
+    // La razón social / nombre no deben arrastrar el RIF.
+    const rifPrefijo = new RegExp(
+      `^(RIF\\s*:?\\s*)?[VEJGCP][-\\s.]?${rifDigitos.slice(0, 8)}[-\\s.]?${rifDigitos[8]}\\s*[-:]?\\s*`, 'i',
+    );
+    for (const k of ['razonSocial', 'nombre']) {
+      if (fields[k]) fields[k] = String(fields[k]).replace(rifPrefijo, '').trim() || null;
+    }
   }
 
   // 2) identificacion: 9 dígitos. 10 dígitos = firma (tipo + RIF); ≥11 = comprobante.

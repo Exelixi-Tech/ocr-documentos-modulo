@@ -1217,7 +1217,11 @@ async function extract(filePath, mimetype, docType, opts = {}) {
       // Si el documento no coincide con el slot, devolvemos inmediatamente:
       // los campos críticos no aplican porque legítimamente no es ese doc.
       const detectedDocType = r.fields && r.fields.documentoTipo;
-      const isMismatch = detectedDocType && detectedDocType !== docType;
+      // Cédula o RIF (aceptaRif): un RIF detectado en el slot de cédula NO es mismatch;
+      // se validan sus campos críticos (RIF + razón social) para que el siguiente modelo
+      // reintente si vinieron vacíos, en vez de devolver una lectura nula al front.
+      const rifEnSlotCedula = schemaKey === 'cedula_rif' && detectedDocType === 'rif';
+      const isMismatch = detectedDocType && detectedDocType !== docType && !rifEnSlotCedula;
 
       // Si los campos críticos están bien (o el doc no coincide), devolvemos.
       if (validation.ok || isMismatch) {
