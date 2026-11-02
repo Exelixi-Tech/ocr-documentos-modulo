@@ -49,6 +49,13 @@ export interface OcrResult {
   color?: string;
   rif?: string;
   razonSocial?: string | null;
+  /** RIF (SENIAT): domicilio fiscal sin estado ni zona postal. */
+  direccionFiscal?: string | null;
+  estadoFiscal?: string | null;
+  zonaPostal?: string | null;
+  fechaInscripcion?: string | null;
+  fechaVencimiento?: string | null;
+  nComprobante?: string | null;
   propietario?: string;
   identificacionPropietario?: string;
   tipoDocPropietario?: string;
