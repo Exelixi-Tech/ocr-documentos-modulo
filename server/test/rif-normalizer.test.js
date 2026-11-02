@@ -15,8 +15,9 @@ const CAMPOS = [
 ];
 
 let normalizeCedulaFields = null;
+let validateCriticalFields = null;
 try {
-  ({ normalizeCedulaFields } = require('../src/services/geminiProvider')._internal);
+  ({ normalizeCedulaFields, validateCriticalFields } = require('../src/services/geminiProvider')._internal);
 } catch {
   // Sin node_modules (@google/genai) se prueba solo el guard puro.
 }
@@ -71,4 +72,41 @@ test('guard no toca cédula colombiana de 10 dígitos (persona natural)', () => 
 test('guard: J con 8 dígitos sin DV se descarta (exige 9)', () => {
   const out = aplicarGuardRif({ documentoTipo: 'rif', tipoDoc: 'J', identificacion: '31300549', razonSocial: 'X C.A.' });
   assert.equal(out.identificacion, null);
+});
+
+// Bug QA 02-nov: "Cédula o RIF del tomador" con RIF clásico SENIAT (UNISA) devolvía datos vacíos.
+// Gemini dejó el RIF pegado a la razón social y el comprobante en identificacion.
+// Orden obligatorio: normalizar (guard) → validar campos críticos (cedula_rif).
+test('cedula_rif clásico: normalizar recupera el RIF de la razón social y luego la validación pasa', () => {
+  const linea = fs.readFileSync(path.join(FIX, 'rif-seniat-clasico-unisa.txt'), 'utf8')
+    .split(/\r?\n/).find((l) => /^J313005495/.test(l));
+  const gemini = {
+    documentoTipo: 'rif',
+    tipoDoc: null,
+    rif: null,
+    identificacion: '201609L0000030994895',
+    razonSocial: linea,
+    nombre: null,
+    apellido: null,
+    nComprobante: '201609L0000030994895',
+  };
+  const out = normalizeCedulaFields ? normalizeCedulaFields({ ...gemini }) : aplicarGuardRif({ ...gemini });
+  assert.equal(out.tipoDoc, 'J');
+  assert.equal(out.identificacion, '313005495');
+  assert.equal(out.rif, 'J-31300549-5');
+  assert.equal(out.razonSocial, 'UNIDAD INTEGRAL DE SALUD UNISA, C.A.');
+  assert.equal(out.nombre, 'UNIDAD INTEGRAL DE SALUD UNISA, C.A.');
+  assert.equal(out.apellido, null);
+  if (validateCriticalFields) {
+    assert.deepEqual(validateCriticalFields('cedula_rif', out), { ok: true, missing: [] });
+    // Sin normalizar, la misma salida de Gemini no pasa (identificacion = comprobante, 18 dígitos).
+    assert.equal(validateCriticalFields('cedula_rif', { ...gemini, identificacion: null }).ok, false);
+  }
+});
+
+test('cedula_rif: razón social sin apellido es válida (nombre = razón social antes de validar)', () => {
+  const out = aplicarGuardRif({ documentoTipo: 'rif', tipoDoc: 'J', rif: 'J-50697333-2', identificacion: null, razonSocial: 'EXELIXI TECH, C.A.', nombre: null, apellido: null });
+  assert.equal(out.identificacion, '506973332');
+  assert.equal(out.nombre, 'EXELIXI TECH, C.A.');
+  if (validateCriticalFields) assert.equal(validateCriticalFields('cedula_rif', out).ok, true);
 });
