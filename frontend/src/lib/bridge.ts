@@ -24,7 +24,7 @@ import {
   getNexusTokenFromUrl,
 } from './nexus-token-client';
 import { canNavigateToStep, getDefaultRequiredDocs } from './wizard-navigation';
-import { getRenovarParam, renovacionPendiente } from './renovacion-entrada';
+import { getRenovarParam, marcarRenovacionError, renovacionPendiente } from './renovacion-entrada';
 import { getProductConfig } from './product';
 import { applyWizardStepFromUrl, defaultStepForModule, stepToModuleOrder } from './wizard-step';
 import {
@@ -195,7 +195,10 @@ interface BridgeAPI {
   ready:  Promise<void>;
   hydrate: () => Promise<void>;
   save:    (extra?: Record<string, unknown>) => Promise<void>;
-  advance: (extra?: Record<string, unknown>) => Promise<{ finished: boolean; nextUrl?: string }>;
+  advance: (
+    extra?: Record<string, unknown>,
+    redirectParams?: Record<string, string>,
+  ) => Promise<{ finished: boolean; nextUrl?: string }>;
   navigateToStep: (targetStep: number) => Promise<boolean>;
 }
 
@@ -304,7 +307,8 @@ function makeBridge(): BridgeAPI {
     } catch (e) { console.warn('[bridge] save failed', e); }
   };
 
-  const advance = async (extra: Record<string, unknown> = {}) => {
+  /** redirectParams: query extra para el siguiente módulo (renovar); salta sin el delay del toast. */
+  const advance = async (extra: Record<string, unknown> = {}, redirectParams?: Record<string, string>) => {
     if (!active || !sid || !order) return { finished: true };
     try {
       const r = await fetchJson<{
@@ -315,7 +319,11 @@ function makeBridge(): BridgeAPI {
         body: JSON.stringify({ ...collectState(), ...extra }),
       });
       const out = r?.data;
-      if (out?.nextUrl) {
+      if (out?.nextUrl && redirectParams) {
+        const next = new URL(out.nextUrl, window.location.href);
+        for (const [k, v] of Object.entries(redirectParams)) next.searchParams.set(k, v);
+        window.location.href = next.toString();
+      } else if (out?.nextUrl) {
         // Pequeño delay para mostrar el toast de éxito antes de saltar
         setTimeout(() => { window.location.href = out.nextUrl as string; }, 900);
       }
@@ -407,8 +415,11 @@ async function init() {
       // Renovar: sin documentos; deja `renovacion` en la sesión y pasa directo a Formulario.
       const renovar = bridge.order === 1 ? getRenovarParam() : null;
       if (renovar) {
+        console.info('[renovacion] OCR omitido, pasando a Formulario', renovar, 'sid=' + bridge.sid);
         useWizardStore.setState({ renovacion: renovacionPendiente(renovar) } as never);
-        void bridge.advance();
+        void bridge.advance({}, { renovar }).then((out) => {
+          if (!out?.nextUrl) marcarRenovacionError('No se pudo abrir el formulario de renovación (flujo Nexus sin siguiente módulo).');
+        });
         return;
       }
       const goTo = useWizardStore.getState().goTo;
@@ -451,6 +462,8 @@ async function init() {
 
     // eslint-disable-next-line no-console
     console.info('[bridge] active — sid=' + bridge.sid + ' order=' + bridge.order);
+  } else if (getRenovarParam()) {
+    marcarRenovacionError('No se pudo iniciar el flujo de renovación (token Nexus inválido o vencido). Pida un enlace nuevo.');
   }
 
   return bridge;
