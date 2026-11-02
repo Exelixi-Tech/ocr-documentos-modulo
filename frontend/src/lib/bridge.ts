@@ -24,6 +24,7 @@ import {
   getNexusTokenFromUrl,
 } from './nexus-token-client';
 import { canNavigateToStep, getDefaultRequiredDocs } from './wizard-navigation';
+import { getRenovarParam, renovacionPendiente } from './renovacion-entrada';
 import { getProductConfig } from './product';
 import { applyWizardStepFromUrl, defaultStepForModule, stepToModuleOrder } from './wizard-step';
 import {
@@ -403,6 +404,13 @@ async function init() {
 
   if (bridge.active && typeof window !== 'undefined') {
     const hydratePromise = bridge.hydrate().then(() => {
+      // Renovar: sin documentos; deja `renovacion` en la sesión y pasa directo a Formulario.
+      const renovar = bridge.order === 1 ? getRenovarParam() : null;
+      if (renovar) {
+        useWizardStore.setState({ renovacion: renovacionPendiente(renovar) } as never);
+        void bridge.advance();
+        return;
+      }
       const goTo = useWizardStore.getState().goTo;
       const applied = applyWizardStepFromUrl(goTo);
       if (applied == null && bridge.order != null) {
