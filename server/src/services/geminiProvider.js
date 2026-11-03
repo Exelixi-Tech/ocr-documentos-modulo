@@ -21,6 +21,7 @@
 const fs = require('fs/promises');
 const { GoogleGenAI, Type } = require('@google/genai');
 const { aplicarGuardRif } = require('./rifNormalizer');
+const { aplicarPasaporte } = require('./mrzParser');
 const { stripSerialTokens } = require('./ownerNameTokens');
 
 const DEFAULT_PRIMARY_MODEL = 'gemini-3.8-flash';
@@ -228,7 +229,11 @@ function normalizeCedulaFields(fields) {
   }
 
   const raw = fields.identificacion ?? fields.rif ?? fields.cedula ?? fields.numeroDocumento ?? fields.numero;
-  const digits = normalizeIdentificacionDigits(raw);
+  // Pasaporte: el número es alfanumérico (ej. EM2849387); no se le quitan las letras.
+  const esPasaporte =
+    fields.documentoTipo === 'pasaporte' || String(fields.tipoDoc || '').toUpperCase() === 'P';
+  const nacionalidadOcr = fields.nacionalidad;
+  const digits = esPasaporte ? null : normalizeIdentificacionDigits(raw);
   if (digits) {
     fields.identificacion = digits;
   } else {
@@ -272,6 +277,13 @@ function normalizeCedulaFields(fields) {
 
   const fechaNac = normalizeFechaNacimientoOcr(fields.fechaNacimiento);
   fields.fechaNacimiento = fechaNac;
+  if (esPasaporte || (fields.mrz && !isNullishOcrValue(fields.mrz))) {
+    if (raw != null && !isNullishOcrValue(raw) && !fields.identificacion) fields.identificacion = String(raw);
+    if (nacionalidadOcr && !isNullishOcrValue(nacionalidadOcr)) fields.nacionalidad = String(nacionalidadOcr).trim();
+    // Pasaporte: MRZ con dígitos de control (número, nacimiento, sexo, nacionalidad).
+    aplicarPasaporte(fields);
+    return fields;
+  }
   // RIF jurídico: descarta firma/comprobante, exige 9 dígitos, nombre = razón social.
   aplicarGuardRif(fields);
   return fields;
@@ -607,7 +619,7 @@ function validateCriticalFields(docType, fields) {
  */
 const DOC_TYPE_PROP = {
   type: Type.STRING,
-  enum: ['cedula', 'licencia', 'certificado', 'rif', 'factura', 'desconocido'],
+  enum: ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura', 'desconocido'],
   description:
     'Tipo de documento DETECTADO en la imagen, INDEPENDIENTE de lo que se haya pedido. ' +
     'Devuelve "cedula" si la imagen es documento de identidad personal: ' +
@@ -619,6 +631,7 @@ const DOC_TYPE_PROP = {
     'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
     '(Republica de Colombia / Ministerio de Transporte). ' +
     'Devuelve "rif" si dice "REGISTRO UNICO DE INFORMACION FISCAL" (SENIAT). ' +
+    'Devuelve "pasaporte" si es un PASAPORTE / PASSPORT de cualquier pais (zona MRZ de 2 lineas con "<" al pie, la primera empieza por "P"). ' +
     'Devuelve "factura" si es ticket / factura fiscal de farmacia o comercio ' +
     '(FARMATODO, FARMAHORRO, etc.) con la palabra FACTURA y un numero de factura. ' +
     'Devuelve "desconocido" si no es ninguno de los anteriores.',
@@ -662,6 +675,16 @@ const SCHEMAS = {
       sexo: {
         type: Type.STRING,
         enum: ['Masculino', 'Femenino'],
+      },
+      nacionalidad: {
+        type: Type.STRING,
+        description: 'Solo pasaporte: codigo de nacionalidad de 3 letras (ej. CHN, COL, VEN).',
+      },
+      mrz: {
+        type: Type.STRING,
+        description:
+          'Solo pasaporte: las 2 lineas MRZ del pie, copiadas EXACTAS caracter por caracter con los "<", ' +
+          'separadas por un salto de linea (44 caracteres cada una). Null si no es pasaporte.',
       },
       estadoCivil: {
         type: Type.STRING,
@@ -756,6 +779,16 @@ const SCHEMAS = {
       sexo: {
         type: Type.STRING,
         enum: ['Masculino', 'Femenino'],
+      },
+      nacionalidad: {
+        type: Type.STRING,
+        description: 'Solo pasaporte: codigo de nacionalidad de 3 letras (ej. CHN, COL, VEN).',
+      },
+      mrz: {
+        type: Type.STRING,
+        description:
+          'Solo pasaporte: las 2 lineas MRZ del pie, copiadas EXACTAS caracter por caracter con los "<", ' +
+          'separadas por un salto de linea (44 caracteres cada una). Null si no es pasaporte.',
       },
       estadoCivil: {
         type: Type.STRING,
@@ -1005,6 +1038,7 @@ const VALIDATION_PREAMBLE =
   'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
   '(Republica de Colombia / Ministerio de Transporte); ' +
   '"rif" si ves "REGISTRO UNICO DE INFORMACION FISCAL" del SENIAT; ' +
+  '"pasaporte" si ves un PASAPORTE / PASSPORT de cualquier pais (zona MRZ con "<" al pie); ' +
   '"factura" si ves un ticket o factura fiscal de comercio (palabra FACTURA + numero); ' +
   '"desconocido" en cualquier otro caso. ' +
   'PASO 2: Si y SOLO SI documentoTipo coincide con el tipo solicitado, extrae los demas campos. ' +
@@ -1014,7 +1048,11 @@ const VALIDATION_PREAMBLE =
 const PROMPTS = {
   cedula:
     VALIDATION_PREAMBLE +
-    'Tipo solicitado: DOCUMENTO DE IDENTIDAD PERSONAL (Venezuela o Colombia — flujo RCV extranjero). ' +
+    'Tipo solicitado: DOCUMENTO DE IDENTIDAD PERSONAL (Venezuela o Colombia — flujo RCV extranjero — o PASAPORTE). ' +
+    '=== Si es PASAPORTE (cualquier pais; este slot TAMBIEN acepta pasaporte) === ' +
+    'documentoTipo="pasaporte", tipoDoc="P". identificacion = numero de pasaporte TAL CUAL, alfanumerico (ej. EM2849387). ' +
+    'apellido = SURNAME/APELLIDOS; nombre = GIVEN NAMES/NOMBRES; sexo; fechaNacimiento YYYY-MM-DD; ' +
+    'nacionalidad = codigo de 3 letras; mrz = las 2 lineas MRZ exactas. estadoCivil = null. ' +
     '=== Venezuela === ' +
     'Header "CEDULA DE IDENTIDAD". tipoDoc="V" si VENEZOLANO, "E" si EXTRANJERO. ' +
     '=== Colombia === ' +
@@ -1037,6 +1075,10 @@ const PROMPTS = {
     'IGNORA F. EXPEDICION y F. VENCIMIENTO. NUNCA inventes el ano (p. ej. 1945). ' +
     'El campo identificacion debe contener solo digitos. ' +
     'Para estadoCivil venezolano: S->"Soltero(a)", C->"Casado(a)", D->"Divorciado(a)", V->"Viudo(a)". ' +
+    '=== Si es PASAPORTE (cualquier pais; este slot TAMBIEN acepta pasaporte) === ' +
+    'documentoTipo="pasaporte", tipoDoc="P". identificacion = numero de pasaporte TAL CUAL, alfanumerico (ej. EM2849387). ' +
+    'apellido = SURNAME/APELLIDOS; nombre = GIVEN NAMES/NOMBRES; sexo; fechaNacimiento YYYY-MM-DD; ' +
+    'nacionalidad = codigo de 3 letras; mrz = las 2 lineas MRZ exactas. estadoCivil = null. ' +
     '=== Si es RIF (SENIAT Venezuela) === ' +
     'Header "REGISTRO UNICO DE INFORMACION FISCAL" (SENIAT). ' +
     'rif = numero de RIF completo con letra y guiones (ej. J-12345678-9, V-12345678-0, G-20001234-5, E-81234567-9). ' +
@@ -1052,7 +1094,8 @@ const PROMPTS = {
     'domicilioFiscal = copia literal de TODO ese texto (incluye ciudad, estado y ZONA POSTAL); ' +
     'direccionFiscal = texto tras "DOMICILIO FISCAL" sin el estado ni la zona postal; estadoFiscal = estado de Venezuela al final del domicilio; ' +
     'zonaPostal = 4 digitos tras "ZONA POSTAL". fechaInscripcion y fechaVencimiento en YYYY-MM-DD (impreso DD/MM/YYYY). ' +
-    'Si es persona natural: nombre y apellido del contribuyente si aparecen. NUNCA inventes datos.',
+    'Si es RIF de persona natural (V o E): apellido = APELLIDOS y nombre = NOMBRES del contribuyente (el SENIAT imprime APELLIDOS NOMBRES), razonSocial = null; ' +
+    'direccionFiscal igual que en empresa; fechaNacimiento solo si aparece impresa (si no, null). NUNCA inventes datos.',
   licencia:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: LICENCIA DE CONDUCIR (Venezuela INTT o Colombia — flujo RCV extranjero). ' +
@@ -1256,7 +1299,10 @@ async function extract(filePath, mimetype, docType, opts = {}) {
       // se validan sus campos críticos (RIF + razón social) para que el siguiente modelo
       // reintente si vinieron vacíos, en vez de devolver una lectura nula al front.
       const rifEnSlotCedula = schemaKey === 'cedula_rif' && detectedDocType === 'rif';
-      const isMismatch = detectedDocType && detectedDocType !== docType && !rifEnSlotCedula;
+      // Pasaporte en el slot de cédula (personas y RCV): válido, no es mismatch.
+      const pasaporteEnSlotCedula = docType === 'cedula' && detectedDocType === 'pasaporte';
+      const isMismatch =
+        detectedDocType && detectedDocType !== docType && !rifEnSlotCedula && !pasaporteEnSlotCedula;
 
       // Si los campos críticos están bien (o el doc no coincide), devolvemos.
       if (validation.ok || isMismatch) {
