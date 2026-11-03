@@ -86,6 +86,8 @@ export async function uploadDocument(
     tarjetaNombreProducto?: string | null;
     /** Producto acepta RIF de empresa en el slot de cédula (patrimoniales). */
     aceptaRif?: boolean;
+    /** Slot de persona natural (titular/beneficiario de personas): rechaza RIF J/G/C. */
+    rifSoloNatural?: boolean;
   },
 ): Promise<UploadResponse> {
   const form = new FormData();
@@ -98,6 +100,7 @@ export async function uploadDocument(
   if (extras?.tarjetaCproducto) form.append('tarjetaCproducto', extras.tarjetaCproducto);
   if (extras?.tarjetaNombreProducto) form.append('tarjetaNombreProducto', extras.tarjetaNombreProducto);
   if (extras?.aceptaRif) form.append('aceptaRif', '1');
+  if (extras?.rifSoloNatural) form.append('rifSoloNatural', '1');
 
   try {
     const response = await api.post<UploadResponse>('/documents/upload', form, {

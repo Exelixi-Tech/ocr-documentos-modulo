@@ -19,7 +19,7 @@ import {
   validateCertificadoForTarjetaPlan,
 } from '../activacion-tarjeta/plan-vehicle';
 import { getProductConfig } from '../../lib/product';
-import { aceptaRifEnCedula, labelConRif } from '../../lib/rif-en-cedula';
+import { aceptaRifEnCedula, labelConRif, rifSoloNaturalEnSlot } from '../../lib/rif-en-cedula';
 import { isViajeroPersonas, resolvePersonasProductLabel } from '../../lib/personas-product-label';
 import { matchCatalog } from '../../lib/matchCatalog';
 import { useCatalogs } from '../../hooks/useCatalogs';
@@ -41,6 +41,7 @@ import {
   formatDocumentoLabel,
   inferTipoDocFromRaw,
   normalizeIdentificacionDigits,
+  normalizeIdentificacionDoc,
   sanitizeOcrString,
   validateCedulaOcr,
   isDocOcrDataValid,
@@ -391,6 +392,7 @@ function UploadDocCard({
         tarjetaCproducto: tarjeta?.cproducto,
         tarjetaNombreProducto: tarjeta?.nombreProducto,
         aceptaRif: aceptaRifEnCedula(),
+        rifSoloNatural: rifSoloNaturalEnSlot(config.type),
       });
 
       setDocState(config.type, { status: 'processing', progress: 100 });
@@ -496,7 +498,7 @@ function UploadDocCard({
 
       if (isCedulaOcrSlot(config.type) && result.ocr && typeof result.ocr === 'object') {
         const rawId = sanitizeOcrString(result.ocr.identificacion || result.ocr.rif);
-        const digits = normalizeIdentificacionDigits(rawId);
+        const digits = normalizeIdentificacionDoc(rawId, sanitizeOcrString(result.ocr.tipoDoc));
         const rawTipo = sanitizeOcrString(result.ocr.tipoDoc);
         const tipoDoc =
           rawTipo
@@ -953,7 +955,7 @@ export function OcrStep() {
         const ecOpts   = catalogs.estadosCivil.map(s => ({ value: String(s.label), label: s.label }));
 
         const rawId = cedula.identificacion || cedula.rif;
-        const digits = normalizeIdentificacionDigits(rawId);
+        const digits = normalizeIdentificacionDoc(rawId, cedula.tipoDoc);
         const tipoDoc = cedula.tipoDoc ?? inferTipoDocFromRaw(cedula.rif || rawId) ?? 'V';
         const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
         const nombre = cedula.nombre ?? (isPJ ? (cedula.razonSocial ?? '') : '');
@@ -1134,7 +1136,7 @@ export function OcrStep() {
           ? extractTomadorFromCertificado(documents.certificado?.ocr)
           : null;
         const rawId = documents.cedula.ocr?.identificacion || documents.cedula.ocr?.rif || tomador.identificacion || fromCert?.identificacion;
-        const identificacion = normalizeIdentificacionDigits(rawId);
+        const identificacion = normalizeIdentificacionDoc(rawId, documents.cedula.ocr?.tipoDoc || tomador.tipoDoc);
         const tipoDoc =
           documents.cedula.ocr?.tipoDoc
           || tomador.tipoDoc
