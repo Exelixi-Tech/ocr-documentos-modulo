@@ -29,6 +29,8 @@ function docTypeMatchesSlot(expected, detected, fields, aceptaRif = false) {
   if (!detected || detected === expected) return true;
   // Cédula o RIF en el mismo slot solo en productos que lo aceptan (patrimoniales).
   if (aceptaRif && expected === 'cedula' && detected === 'rif') return true;
+  // Pasaporte en el slot de cédula (personas y RCV): el MRZ da número, nombres, sexo y nacimiento.
+  if (expected === 'cedula' && detected === 'pasaporte') return true;
   if (detected !== 'desconocido') return false;
   if (!fields || typeof fields !== 'object') return false;
 
@@ -134,6 +136,8 @@ function readTarjetaPlanFromRequest(tarjetaHints) {
 
 async function runOcr(file, docType, tarjetaHints, opts = {}) {
   const aceptaRif = opts.aceptaRif === true;
+  // rifSoloNatural: slot de titular/asegurado/beneficiario de personas → solo RIF V/E (persona natural).
+  const rifSoloNatural = opts.rifSoloNatural === true;
   if (!VALID_DOC_TYPES.includes(docType)) {
     throw new Error(`Tipo de documento invalido: ${docType}`);
   }
@@ -155,6 +159,24 @@ async function runOcr(file, docType, tarjetaHints, opts = {}) {
 
       // Validacion: el header del documento debe coincidir con el slot solicitado.
       const detected = result.fields && result.fields.documentoTipo;
+      const tipoPJ = String(result.fields?.tipoDoc || '').toUpperCase();
+      if (rifSoloNatural && ['J', 'G', 'C'].includes(tipoPJ)) {
+        console.warn(`[OCR] RIF jurídico (${tipoPJ}) en slot de persona natural docType=${docType}`);
+        return {
+          provider: 'gemini',
+          fields: null,
+          meta: result.meta,
+          mismatch: {
+            expected: docType,
+            detected: 'rif',
+            expectedLabel: 'Cédula, pasaporte o RIF personal (V/E)',
+            detectedLabel: 'RIF de empresa',
+            message:
+              'El titular, asegurado o beneficiario debe ser persona natural: ' +
+              'sube su cédula, pasaporte o RIF personal (V/E). El RIF de empresa (J/G/C) solo va como tomador.',
+          },
+        };
+      }
       if (detected && !docTypeMatchesSlot(docType, detected, result.fields, aceptaRif)) {
         const expectedLabel = DOC_TYPE_LABELS[docType] || docType;
         const detectedLabel = DOC_TYPE_LABELS[detected] || detected;

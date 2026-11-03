@@ -32,6 +32,18 @@ export function normalizeIdentificacionDigits(raw?: string | null): string {
   return String(raw ?? '').replace(/\D/g, '');
 }
 
+/**
+ * Número de documento según tipo: pasaporte (P) conserva letras y dígitos (ej. EM2849387);
+ * cédula / RIF → solo dígitos.
+ */
+export function normalizeIdentificacionDoc(raw?: string | null, tipoDoc?: string | null): string {
+  if (isNullishOcrValue(raw)) return '';
+  if (String(tipoDoc ?? '').trim().toUpperCase() === 'P') {
+    return String(raw ?? '').toUpperCase().replace(/^P[-s]+/, '').replace(/[^A-Z0-9]/g, '');
+  }
+  return normalizeIdentificacionDigits(raw);
+}
+
 /** Inferir V/E/J/P desde prefijo en texto OCR (ej. "V-12.345.678"). */
 export function inferTipoDocFromRaw(raw?: string | null): string | null {
   if (isNullishOcrValue(raw)) return null;
@@ -47,9 +59,9 @@ export function formatDocumentoLabel(
   identificacion?: string | null,
   tipoDoc?: string | null,
 ): string {
-  const digits = normalizeIdentificacionDigits(identificacion);
-  if (digits.length < 6) return '';
   const rawTipo = sanitizeOcrString(tipoDoc);
+  const digits = normalizeIdentificacionDoc(identificacion, rawTipo);
+  if (digits.length < (rawTipo?.toUpperCase() === 'P' ? 5 : 6)) return '';
   const tipo = (rawTipo ?? 'V').toUpperCase() || 'V';
   return `${tipo}-${digits}`;
 }
@@ -71,7 +83,7 @@ export function validateCedulaOcr(ocr?: Record<string, unknown> | null): {
   }
 
   const rawId = sanitizeOcrString(ocr.identificacion || ocr.rif || ocr.cedula);
-  const digits = normalizeIdentificacionDigits(rawId);
+  const digits = normalizeIdentificacionDoc(rawId, sanitizeOcrString(ocr.tipoDoc));
   const nombre = sanitizeOcrString(ocr.nombre);
   const apellido = sanitizeOcrString(ocr.apellido);
   const razonSocial = sanitizeOcrString(ocr.razonSocial);
