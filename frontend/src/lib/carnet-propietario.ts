@@ -13,6 +13,26 @@ type CertTomadorOcr = {
   tipoDocPropietario?: string;
 };
 
+/**
+ * El OCR del carnet a veces mete el serial NIV (ej. "8211MBCA6SD245116") como nombre o
+ * apellido del propietario. Un token con dígitos o de >= 10 alfanuméricos se descarta
+ * para que el campo quede vacío y el Formulario/Pagos lo pidan.
+ */
+export function looksLikeSerialToken(token: string): boolean {
+  const t = (token ?? '').trim();
+  if (!t) return true;
+  if (/\d/.test(t)) return true;
+  return /^[A-Za-z0-9]{10,}$/.test(t);
+}
+
+export function stripSerialTokens(text?: string): string {
+  return (text ?? '')
+    .trim()
+    .split(/\s+/)
+    .filter((tok) => tok && !looksLikeSerialToken(tok))
+    .join(' ');
+}
+
 export function splitOwnerName(full: string, order: 'nombre_first' | 'apellido_first' = 'nombre_first'): { nombre: string; apellido: string } {
   const parts = full.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { nombre: '', apellido: '' };
@@ -36,12 +56,13 @@ export function extractTomadorFromCertificado(cert?: CertTomadorOcr | null): {
 } | null {
   if (!cert) return null;
 
-  let nombre = cert.nombre || cert.propietarioNombre || '';
-  let apellido = cert.apellido || cert.propietarioApellido || '';
+  let nombre = stripSerialTokens(cert.nombre || cert.propietarioNombre || '');
+  let apellido = stripSerialTokens(cert.apellido || cert.propietarioApellido || '');
 
-  if (!nombre && !apellido && cert.propietario) {
+  const propietarioLimpio = stripSerialTokens(cert.propietario);
+  if (!nombre && !apellido && propietarioLimpio) {
     const isColombian = cert.tipoDocPropietario?.toUpperCase().includes('CC') || cert.tipoDocPropietario?.toUpperCase().includes('CE');
-    const split = splitOwnerName(cert.propietario, isColombian ? 'apellido_first' : 'nombre_first');
+    const split = splitOwnerName(propietarioLimpio, isColombian ? 'apellido_first' : 'nombre_first');
     apellido = split.apellido;
     nombre = split.nombre;
   }
