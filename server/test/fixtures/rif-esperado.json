@@ -14,6 +14,7 @@
     "fechaActualizacion": "2024-03-14",
     "fechaVencimiento": "2027-03-14",
     "nComprobante": "201609L0000030994895",
+    "_ciudad": "LOS ROBLES",
     "_noDebeSer": { "identificacion": "3313005495", "comentario": "3313005495-IKX es el codigo de FIRMA AUTORIZADA, no el RIF" }
   },
   "rif-digital-v2-exelixi": {
@@ -31,6 +32,7 @@
     "fechaActualizacion": "2026-08-20",
     "fechaVencimiento": null,
     "nComprobante": "202506Q0000068655110",
+    "_ciudad": "CARACAS",
     "_noDebeSer": { "identificacion": "3506973332", "comentario": "3506973332-CKY es el codigo de FIRMA AUTORIZADA / SISTEMA, no el RIF" }
   }
 }
