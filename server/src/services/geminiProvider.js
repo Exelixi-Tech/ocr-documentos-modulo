@@ -21,6 +21,7 @@
 const fs = require('fs/promises');
 const { GoogleGenAI, Type } = require('@google/genai');
 const { aplicarGuardRif } = require('./rifNormalizer');
+const { stripSerialTokens } = require('./ownerNameTokens');
 
 const DEFAULT_PRIMARY_MODEL = 'gemini-3.8-flash';
 const DEFAULT_FALLBACK_CHAIN = [
@@ -290,9 +291,15 @@ function normalizeLicenciaFields(fields) {
 }
 
 function mapOwnerFromCarnet(fields, mapDocType, order = 'apellido_first') {
+  // Nombre/apellido directos del OCR: descartar tokens tipo serial NIV.
+  for (const key of ['nombre', 'apellido', 'propietarioNombre', 'propietarioApellido']) {
+    if (fields[key] != null && !isNullishOcrValue(fields[key])) {
+      fields[key] = stripSerialTokens(fields[key]);
+    }
+  }
   const ownerRaw = fields.propietario || fields.propietarioCompleto;
   if (ownerRaw && !isNullishOcrValue(ownerRaw)) {
-    const parts = String(ownerRaw).trim().split(/\s+/).filter(Boolean);
+    const parts = stripSerialTokens(ownerRaw).split(/\s+/).filter(Boolean);
     if (parts.length >= 2) {
       const mid = Math.floor(parts.length / 2);
       const firstHalf = parts.slice(0, mid).join(' ');
