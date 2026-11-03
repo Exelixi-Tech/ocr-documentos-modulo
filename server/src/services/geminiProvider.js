@@ -559,6 +559,10 @@ const CRITICAL_FIELDS = {
  * Devuelve { ok, missing[] } para diagnóstico.
  */
 function validateCriticalFields(docType, fields) {
+  // Todo RIF trae DOMICILIO FISCAL: si falta la dirección, se reintenta con el siguiente modelo.
+  const faltaDireccionRif = fields?.documentoTipo === 'rif'
+    && (docType === 'cedula_rif' || docType === 'rif')
+    && (!fields?.direccionFiscal || isNullishOcrValue(fields.direccionFiscal));
   // Solo cédula o RIF (patrimoniales): empresa válida con RIF + razón social, sin apellido.
   if (docType === 'cedula_rif') {
     const hasId = Boolean(
@@ -573,6 +577,7 @@ function validateCriticalFields(docType, fields) {
     const missing = [];
     if (!hasId) missing.push('identificacion');
     if (!hasName) missing.push('nombre');
+    if (faltaDireccionRif) missing.push('direccionFiscal');
     return { ok: missing.length === 0, missing };
   }
   const required = CRITICAL_FIELDS[docType] || [];
@@ -581,6 +586,7 @@ function validateCriticalFields(docType, fields) {
     const v = fields ? fields[f] : null;
     if (v == null || isNullishOcrValue(v) || String(v).trim() === '') missing.push(f);
   }
+  if (faltaDireccionRif) missing.push('direccionFiscal');
   return { ok: missing.length === 0, missing };
 }
 
@@ -699,6 +705,13 @@ const SCHEMAS = {
         description:
           'V=venezolano, E=extranjero/colombiano (C.C. Colombia), J=juridico/empresa, G=gubernamental, C=comunal, P=pasaporte',
       },
+      domicilioFiscal: {
+        type: Type.STRING,
+        nullable: true,
+        description:
+          'Solo RIF: copia LITERAL y COMPLETA del texto tras "DOMICILIO FISCAL" (incluye ciudad, estado y "ZONA POSTAL nnnn"). ' +
+          'Obligatorio si el documento es RIF. Null si es cédula.',
+      },
       direccionFiscal: {
         type: Type.STRING,
         description:
@@ -750,7 +763,7 @@ const SCHEMAS = {
           'Devuelve siempre el valor expandido entre parentesis (ej. "Soltero(a)"). Si es empresa, null.',
       },
     },
-    required: ['documentoTipo'],
+    required: ['documentoTipo', 'domicilioFiscal'],
   },
 
   licencia: {
@@ -912,6 +925,13 @@ const SCHEMAS = {
         enum: ['V', 'E', 'J', 'G', 'C', 'P'],
         description: 'Letra del RIF: J=juridico, G=gubernamental, C=comunal, V/E=persona natural',
       },
+      domicilioFiscal: {
+        type: Type.STRING,
+        nullable: true,
+        description:
+          'Solo RIF: copia LITERAL y COMPLETA del texto tras "DOMICILIO FISCAL" (incluye ciudad, estado y "ZONA POSTAL nnnn"). ' +
+          'Obligatorio si el documento es RIF. Null si es cédula.',
+      },
       direccionFiscal: {
         type: Type.STRING,
         description:
@@ -938,7 +958,7 @@ const SCHEMAS = {
         description: 'Solo RIF: N° COMPROBANTE (NO es el RIF ni la identificación).',
       },
     },
-    required: ['documentoTipo'],
+    required: ['documentoTipo', 'domicilioFiscal'],
   },
 
   factura: {
@@ -1024,6 +1044,9 @@ const PROMPTS = {
     'IGNORA el codigo de 10 digitos + guion + 3 letras junto a "FIRMA AUTORIZADA" o "SISTEMA" (ej. 3313005495-IKX): NO es el RIF. ' +
     'IGNORA el N° COMPROBANTE: va solo en nComprobante. ' +
     'razonSocial = texto a la derecha del RIF (formato clasico) o la linea siguiente a "RIF:" (RIF Digital v2.0). ' +
+    'DOMICILIO FISCAL (OBLIGATORIO en todo RIF, nunca null): formato clasico = en la MISMA linea tras la etiqueta en negrita "DOMICILIO FISCAL"; ' +
+    'RIF Digital v2.0 = en el bloque "IDENTIFICACION DEL CONTRIBUYENTE", en la(s) linea(s) bajo "DOMICILIO FISCAL:". ' +
+    'domicilioFiscal = copia literal de TODO ese texto (incluye ciudad, estado y ZONA POSTAL); ' +
     'direccionFiscal = texto tras "DOMICILIO FISCAL" sin el estado ni la zona postal; estadoFiscal = estado de Venezuela al final del domicilio; ' +
     'zonaPostal = 4 digitos tras "ZONA POSTAL". fechaInscripcion y fechaVencimiento en YYYY-MM-DD (impreso DD/MM/YYYY). ' +
     'Si es persona natural: nombre y apellido del contribuyente si aparecen. NUNCA inventes datos.',
@@ -1077,6 +1100,9 @@ const PROMPTS = {
     'IGNORA el codigo de 10 digitos + guion + 3 letras junto a "FIRMA AUTORIZADA" o "SISTEMA" (ej. 3313005495-IKX): NO es el RIF. ' +
     'IGNORA el N° COMPROBANTE: va solo en nComprobante. ' +
     'razonSocial = texto a la derecha del RIF (formato clasico) o la linea siguiente a "RIF:" (RIF Digital v2.0). ' +
+    'DOMICILIO FISCAL (OBLIGATORIO en todo RIF, nunca null): formato clasico = en la MISMA linea tras la etiqueta en negrita "DOMICILIO FISCAL"; ' +
+    'RIF Digital v2.0 = en el bloque "IDENTIFICACION DEL CONTRIBUYENTE", en la(s) linea(s) bajo "DOMICILIO FISCAL:". ' +
+    'domicilioFiscal = copia literal de TODO ese texto (incluye ciudad, estado y ZONA POSTAL); ' +
     'direccionFiscal = texto tras "DOMICILIO FISCAL" sin el estado ni la zona postal; estadoFiscal = estado de Venezuela al final del domicilio; ' +
     'zonaPostal = 4 digitos tras "ZONA POSTAL". fechaInscripcion y fechaVencimiento en YYYY-MM-DD (impreso DD/MM/YYYY). ' +
     'Si es persona juridica, apellido = null.',
@@ -1207,6 +1233,8 @@ async function extract(filePath, mimetype, docType, opts = {}) {
   // Carnet con placa pero sin marca/modelo: se guarda la lectura más completa por si
   // ningún modelo de la cadena la mejora (mejor precargar algo que bloquear al cliente).
   let bestPartial = null;
+  /** RIF leído completo salvo la dirección: se devuelve si ningún modelo la trae. */
+  let sinDireccion = null;
 
   for (const model of chain) {
     try {
@@ -1251,6 +1279,9 @@ async function extract(filePath, mimetype, docType, opts = {}) {
         `[OCR] modelo=${model} resultado incompleto (faltan: ${validation.missing.join(', ')}), ` +
         `intentando siguiente modelo si hay`
       );
+      if (!sinDireccion && validation.missing.every((m) => m === 'direccionFiscal')) {
+        sinDireccion = { fields: r.fields, model, singleCallMs: r.elapsedMs };
+      }
       lastErr = new Error(`Campos críticos vacíos: ${validation.missing.join(', ')}`);
       if (docType === 'certificado' && !validation.missing.includes('placa')
         && (!bestPartial || validation.missing.length < bestPartial.missing)) {
@@ -1266,6 +1297,19 @@ async function extract(filePath, mimetype, docType, opts = {}) {
       lastErr = err;
       // Probamos siguiente modelo
     }
+  }
+
+  if (sinDireccion) {
+    return {
+      fields: sinDireccion.fields,
+      meta: {
+        provider: 'gemini',
+        model: sinDireccion.model,
+        elapsedMs: Date.now() - overallStart,
+        singleCallMs: sinDireccion.singleCallMs,
+        chainAttempts: attemptsLog,
+      },
+    };
   }
 
   // Si llegamos acá, ningún modelo dio campos críticos completos. Devolvemos
