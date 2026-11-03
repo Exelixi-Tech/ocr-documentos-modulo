@@ -86,6 +86,22 @@ function splitEstado(direccion) {
 }
 
 /**
+ * Domicilio fiscal SENIAT → { direccion, estado, zonaPostal }.
+ * Acepta el texto con o sin el rótulo "DOMICILIO FISCAL" (si viene un texto más largo,
+ * toma desde el rótulo). La dirección queda sin el estado ni "ZONA POSTAL nnnn".
+ */
+function separarDomicilio(texto) {
+  let cuerpo = clean(texto);
+  if (!cuerpo) return { direccion: null, estado: null, zonaPostal: null };
+  const rot = cuerpo.match(/DOMICILIO\s+FISCAL\s*:?\s*([\s\S]*)$/i);
+  if (rot) cuerpo = rot[1];
+  const zp = cuerpo.match(/ZONA\s+POSTAL\s*:?\s*(\d{4})/i);
+  cuerpo = cuerpo.replace(/ZONA\s+POSTAL[\s\S]*$/i, '').replace(/[\s,]+$/, '').trim();
+  const { direccion, estado } = splitEstado(cuerpo);
+  return { direccion: direccion || null, estado, zonaPostal: zp ? zp[1] : null };
+}
+
+/**
  * Lectura determinista del texto de un RIF (SENIAT clásico o RIF Digital v2.0).
  * Devuelve los mismos campos que el esquema Gemini `cedula_rif` / `rif`.
  */
@@ -135,13 +151,19 @@ function parseRifText(text) {
 
     const dom = line.match(/DOMICILIO\s+FISCAL\s*:?\s*(.*)$/i);
     if (dom) {
+      // Clásico: en la misma línea. RIF Digital v2.0: puede venir en la(s) línea(s) siguiente(s).
       let cuerpo = dom[1];
-      const zp = cuerpo.match(/ZONA\s+POSTAL\s*:?\s*(\d{4})/i);
-      if (zp) out.zonaPostal = zp[1];
-      cuerpo = cuerpo.replace(/ZONA\s+POSTAL.*$/i, '').trim();
-      const { direccion, estado } = splitEstado(cuerpo);
+      let j = i;
+      while (!/ZONA\s+POSTAL\s*:?\s*\d{4}/i.test(cuerpo) && lines[j + 1]
+        && !/^(DATOS DE|FECHA|N°|N\.|NRO|COMPROBANTE)/i.test(stripAccents(lines[j + 1]))) {
+        j += 1;
+        cuerpo = `${cuerpo} ${lines[j]}`.trim();
+      }
+      const { direccion, estado, zonaPostal } = separarDomicilio(cuerpo);
+      if (zonaPostal) out.zonaPostal = zonaPostal;
       out.direccionFiscal = direccion;
       out.estadoFiscal = estado;
+      i = j;
       continue;
     }
 
@@ -165,7 +187,7 @@ function parseRifText(text) {
 function aplicarGuardRif(fields) {
   if (!fields || typeof fields !== 'object') return fields;
 
-  for (const k of ['direccionFiscal', 'estadoFiscal', 'zonaPostal', 'nComprobante', 'razonSocial']) {
+  for (const k of ['domicilioFiscal', 'direccionFiscal', 'estadoFiscal', 'zonaPostal', 'nComprobante', 'razonSocial']) {
     if (k in fields) fields[k] = clean(fields[k]);
   }
   for (const k of ['fechaInscripcion', 'fechaActualizacion', 'fechaVencimiento']) {
@@ -238,15 +260,21 @@ function aplicarGuardRif(fields) {
   if (tipo && ident.length === 9) fields.rif = formatRif(tipo, ident);
   else if (firmaEnRif) fields.rif = null;
 
-  // 3) La dirección no debe arrastrar el estado ni la zona postal.
-  if (fields.direccionFiscal) {
-    let dir = fields.direccionFiscal;
-    const zp = dir.match(/ZONA\s+POSTAL\s*:?\s*(\d{4})/i);
-    if (zp && !fields.zonaPostal) fields.zonaPostal = zp[1];
-    dir = dir.replace(/ZONA\s+POSTAL.*$/i, '').trim();
-    const { direccion, estado } = splitEstado(dir);
-    fields.direccionFiscal = direccion;
-    if (!fields.estadoFiscal && estado) fields.estadoFiscal = estado;
+  // 3) La dirección no debe arrastrar el estado ni la zona postal. Gemini a veces omite
+  //    direccionFiscal (QA 02-nov, RIF Digital EXELIXI): se recupera del domicilio literal
+  //    (domicilioFiscal) o del texto crudo si viene. Nunca se vacía si alguna fuente la trae.
+  const fuentes = [fields.direccionFiscal, fields.domicilioFiscal];
+  for (const k of ['textoCompleto', 'rawText']) {
+    if (/DOMICILIO\s+FISCAL/i.test(String(fields[k] || ''))) fuentes.push(fields[k]);
+  }
+  if (fuentes.some(Boolean)) {
+    fields.direccionFiscal = null;
+    for (const fuente of fuentes) {
+      const { direccion, estado, zonaPostal } = separarDomicilio(fuente);
+      if (zonaPostal && !fields.zonaPostal) fields.zonaPostal = zonaPostal;
+      if (estado && !fields.estadoFiscal) fields.estadoFiscal = estado;
+      if (direccion && !fields.direccionFiscal) fields.direccionFiscal = direccion;
+    }
   }
 
   // 4) Persona jurídica: nombre = razón social; sin apellido ni datos de persona natural.
@@ -261,4 +289,4 @@ function aplicarGuardRif(fields) {
   return fields;
 }
 
-module.exports = { aplicarGuardRif, parseRifText, toIsoDate, findRif, splitEstado, PJ_TIPOS };
+module.exports = { aplicarGuardRif, parseRifText, toIsoDate, findRif, splitEstado, separarDomicilio, PJ_TIPOS };
