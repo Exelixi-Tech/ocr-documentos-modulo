@@ -1,5 +1,5 @@
 import type { OcrResult } from '../types';
-import { inferTipoDocFromRaw, normalizeIdentificacionDigits } from './identificacion';
+import { inferTipoDocFromRaw, normalizeIdentificacionDoc } from './identificacion';
 
 function toIsoFechaNac(raw?: string | null): string | undefined {
   const s = String(raw ?? '').trim();
@@ -21,7 +21,7 @@ export function extractPersonFromOcr(ocr?: OcrResult | null): {
   if (!ocr) return null;
 
   const rawId = ocr.identificacion || ocr.rif;
-  const identificacion = normalizeIdentificacionDigits(rawId);
+  const identificacion = normalizeIdentificacionDoc(rawId, ocr.tipoDoc);
   const tipoDoc =
     ocr.tipoDoc
     ?? inferTipoDocFromRaw(rawId)

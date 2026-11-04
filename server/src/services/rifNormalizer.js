@@ -238,6 +238,15 @@ function aplicarGuardRif(fields) {
   if (tipo && ident.length === 9) fields.rif = formatRif(tipo, ident);
   else if (firmaEnRif) fields.rif = null;
 
+  // RIF de persona NATURAL (V/E): no es empresa. La identificación es la cédula del RIF
+  // sin el dígito verificador (V-12345678-9 → 12345678; V-07123456-1 → 7123456).
+  if ((tipo === 'V' || tipo === 'E') && ident.length === 9) {
+    fields.identificacion = String(Number(ident.slice(0, 8)));
+    fields.rifPersonaNatural = true;
+    if (fields.razonSocial && !fields.nombre) fields.nombre = fields.razonSocial;
+    fields.razonSocial = null;
+  }
+
   // 3) La dirección no debe arrastrar el estado ni la zona postal.
   if (fields.direccionFiscal) {
     let dir = fields.direccionFiscal;

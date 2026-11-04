@@ -1,6 +1,6 @@
 import { useWizardStore } from '../store/wizardStore';
 import { getProductId } from './product';
-import { inferTipoDocFromRaw, normalizeIdentificacionDigits } from './identificacion';
+import { inferTipoDocFromRaw, normalizeIdentificacionDoc } from './identificacion';
 import type { OcrResult } from '../types';
 
 /** Cédula VE: DD/MM/YYYY → YYYY-MM-DD. ISO se deja igual. */
@@ -16,7 +16,7 @@ function toIsoFechaNac(raw?: string | null): string {
 function personFromOcr(ocr?: OcrResult | null) {
   if (!ocr) return null;
   const rawId = ocr.identificacion || ocr.rif;
-  const identificacion = normalizeIdentificacionDigits(rawId);
+  const identificacion = normalizeIdentificacionDoc(rawId, ocr.tipoDoc);
   const tipoDoc = ocr.tipoDoc ?? inferTipoDocFromRaw(rawId) ?? 'V';
   const isPJ = ['J', 'G', 'C'].includes(tipoDoc.toUpperCase());
   const nombre = ocr.nombre || (isPJ ? (ocr.razonSocial ?? '') : '');
