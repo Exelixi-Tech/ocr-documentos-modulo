@@ -90,13 +90,17 @@ export function OcrConfigPanel() {
   const [ocrOpcional, setOcrOpcional] = useState<OcrOpcionalState>({ gestores: [], canales: [] });
   const [actores, setActores] = useState<{ canales: CanalActor[]; gestores: GestorActor[] }>({ canales: [], gestores: [] });
   const [actoresLoad, setActoresLoad] = useState<ActoresLoad>('idle');
+  const [actoresError, setActoresError] = useState('');
   const [actorFilter, setActorFilter] = useState('');
 
   // Catálogo de actores Sis2000 (vía el server del módulo → server-api-sys).
   useEffect(() => {
-    if (tab !== 'canales' || actoresLoad === 'ready' || actoresLoad === 'loading') return;
+    if (tab !== 'canales' || actoresLoad !== 'idle') return;
     setActoresLoad('loading');
-    fetch(`${moduleApiBase()}/catalog/actores`)
+    setActoresError('');
+    fetch(`${moduleApiBase()}/catalog/actores`, {
+      headers: PANEL_CTX.token ? { Authorization: `Bearer ${PANEL_CTX.token}` } : undefined,
+    })
       .then(res => res.json())
       .then(data => {
         if (data?.success && data.data) {
@@ -106,6 +110,7 @@ export function OcrConfigPanel() {
           });
           setActoresLoad('ready');
         } else {
+          setActoresError(typeof data?.message === 'string' ? data.message : '');
           setActoresLoad('error');
         }
       })
@@ -221,7 +226,8 @@ export function OcrConfigPanel() {
         }),
       };
     }
-    await saveConfig(payload);
+    const guardado = await saveConfig(payload);
+    if (!guardado) return;
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
@@ -462,7 +468,7 @@ export function OcrConfigPanel() {
                       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
                           <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                          <p className="text-amber-700 text-sm font-medium">No se pudo cargar el catálogo de canales/gestores del Core.</p>
+                          <p className="text-amber-700 text-sm font-medium">{actoresError || 'No se pudo cargar el catálogo de canales/gestores del Core.'}</p>
                         </div>
                         <button
                           onClick={() => setActoresLoad('idle')}
@@ -500,8 +506,8 @@ export function OcrConfigPanel() {
                             detalle: `cgestor ${g.cgestor}${g.ccanalalt != null ? ` · canal ${g.ccanalalt}` : ''}`,
                           });
 
-                          // Los marcados como opcionales siempre se muestran; el resto según el buscador,
-                          // con tope de filas (hay miles de gestores).
+                          // El orden no depende del estado del toggle: si una fila cambiara de sitio
+                          // al marcarla, otra quedaría bajo el cursor. Hay miles de gestores, por eso el tope.
                           const buildRows = <T,>(
                             all: T[],
                             marked: (x: T) => boolean,
@@ -509,22 +515,16 @@ export function OcrConfigPanel() {
                             toRow: (x: T) => { code: string; nombre: string; detalle: string },
                             requireFilter: boolean,
                           ) => {
-                            const fijos = all.filter(marked).map(toRow);
-                            const seen = new Set(fijos.map(r => r.code));
-                            let resto: T[] = [];
-                            let truncated = 0;
                             if (f) {
-                              const found = all.filter(x => !marked(x) && matches(x, f));
-                              truncated = Math.max(0, found.length - MAX_ROWS);
-                              resto = found.slice(0, MAX_ROWS);
-                            } else if (!requireFilter) {
-                              resto = all.filter(x => !marked(x));
+                              const found = all.filter(x => matches(x, f));
+                              return {
+                                rows: found.slice(0, MAX_ROWS).map(toRow),
+                                truncated: Math.max(0, found.length - MAX_ROWS),
+                                needsFilter: false,
+                              };
                             }
-                            return {
-                              rows: [...fijos, ...resto.map(toRow).filter(r => !seen.has(r.code))],
-                              truncated,
-                              needsFilter: requireFilter && !f,
-                            };
+                            const visibles = requireFilter ? all.filter(marked) : all;
+                            return { rows: visibles.map(toRow), truncated: 0, needsFilter: requireFilter };
                           };
 
                           const secciones = [

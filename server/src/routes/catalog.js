@@ -4,6 +4,7 @@
 const express = require('express');
 const axios = require('axios');
 const builder = require('../services/productBuilderClient');
+const requireConfigPanelToken = require('../middleware/requireConfigPanelToken');
 
 const router = express.Router();
 
@@ -11,22 +12,20 @@ const router = express.Router();
 const ACTORES_CACHE_TTL_MS = 5 * 60 * 1000;
 let actoresCache = { at: 0, data: null };
 
-function lmBaseUrl() {
+// server-api-sys (nest-api), NO el SysIP de tarjetas. Misma convención que
+// activacionTarjeta: módulo y nest-api conviven en el mismo servidor
+// (QA: nexusqa…/nest-api-docs público, 127.0.0.1:3002 local).
+function nestBaseUrl() {
   return (
-    process.env.LAMUNDIAL_CARDS_URL
-    || process.env.LAMUNDIAL_BASE_URL
-    || 'https://qaapisys2000.lamundialdeseguros.com'
+    process.env.NEST_API_URL
+    || process.env.SYSIP_API_URL
+    || 'http://127.0.0.1:3002'
   ).replace(/\/$/, '');
 }
 
-function lmHeaders() {
+function nestHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  const key = (
-    process.env.LAMUNDIAL_CARDS_APIKEY
-    || process.env.LAMUNDIAL_APIKEY
-    || process.env.LAMUNDIAL_EMISSION_APIKEY
-    || ''
-  ).trim();
+  const key = (process.env.NEST_API_KEY || process.env.NEST_APIKEY || '').trim();
   if (key) headers.apikey = key;
   return headers;
 }
@@ -37,22 +36,28 @@ function lmHeaders() {
  *   get:
  *     tags: [Catálogo]
  *     summary: Canales alternos y gestores activos (Sis2000, vía server-api-sys)
+ *     description: Requiere el token del parametrizador (scope config-panel).
  *     responses:
  *       200:
  *         description: "{ canales: [...], gestores: [...] }"
+ *       401:
+ *         description: Token ausente o inválido
+ *       403:
+ *         description: El token no es del parametrizador
  */
-router.get('/actores', async (_req, res) => {
+router.get('/actores', requireConfigPanelToken, async (_req, res) => {
   if (actoresCache.data && Date.now() - actoresCache.at < ACTORES_CACHE_TTL_MS) {
     return res.json({ success: true, data: actoresCache.data, cached: true });
   }
   try {
-    const upstream = await axios.get(`${lmBaseUrl()}/api/v1/canal/actores`, {
-      headers: lmHeaders(),
+    const upstream = await axios.get(`${nestBaseUrl()}/api/v1/canal/actores`, {
+      headers: nestHeaders(),
       timeout: parseInt(process.env.LAMUNDIAL_TIMEOUT_MS, 10) || 20000,
       validateStatus: () => true,
     });
     const body = upstream.data;
     if (upstream.status >= 400 || !body || body.status !== true || !body.data) {
+      console.error(`[catalog] actores: el Core respondió ${upstream.status}`);
       // Si el Core falla, servir el último catálogo conocido aunque esté vencido.
       if (actoresCache.data) {
         return res.json({ success: true, data: actoresCache.data, cached: true, stale: true });
