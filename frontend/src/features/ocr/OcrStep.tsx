@@ -30,6 +30,7 @@ import {
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
 import { resolveOcrPersonRoles } from '../../lib/ocr-person-roles';
+import { isOcrOpcionalForActor } from '../../lib/ocr-opcional';
 import { isCedulaOcrSlot } from '../../lib/ocr-engine-doc';
 import { applyFuneralOcrCedulas } from '../../lib/funeral-ocr-apply';
 import {
@@ -830,6 +831,7 @@ export function OcrStep() {
     documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
     builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
     titularFromCarnet, asegurado, hasDriver, conductor, tarjeta,
+    metadataCanal,
   } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
@@ -1042,8 +1044,19 @@ export function OcrStep() {
       ? (completedCount / effectiveRequired.length) * 100
       : 0;
 
+  const ocrOpcionalCanal = isOcrOpcionalForActor(
+    config as Record<string, unknown> | null,
+    metadataCanal,
+  );
+
   return (
     <div className="animate-fade-in">
+      {ocrOpcionalCanal && (
+        <div className="mb-5 rounded-2xl border border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-700">
+          <span className="font-bold">Escaneo opcional para tu canal.</span>{' '}
+          Puedes subir los documentos para precargar los datos, o continuar sin ellos y completarlos a mano en el formulario.
+        </div>
+      )}
       <div className="mb-7 grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 flex flex-col justify-center">
           <p className="text-slate-600 text-sm leading-relaxed">
