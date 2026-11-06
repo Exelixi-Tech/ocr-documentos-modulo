@@ -90,13 +90,17 @@ export function OcrConfigPanel() {
   const [ocrOpcional, setOcrOpcional] = useState<OcrOpcionalState>({ gestores: [], canales: [] });
   const [actores, setActores] = useState<{ canales: CanalActor[]; gestores: GestorActor[] }>({ canales: [], gestores: [] });
   const [actoresLoad, setActoresLoad] = useState<ActoresLoad>('idle');
+  const [actoresError, setActoresError] = useState('');
   const [actorFilter, setActorFilter] = useState('');
 
   // Catálogo de actores Sis2000 (vía el server del módulo → server-api-sys).
   useEffect(() => {
-    if (tab !== 'canales' || actoresLoad === 'ready' || actoresLoad === 'loading') return;
+    if (tab !== 'canales' || actoresLoad !== 'idle') return;
     setActoresLoad('loading');
-    fetch(`${moduleApiBase()}/catalog/actores`)
+    setActoresError('');
+    fetch(`${moduleApiBase()}/catalog/actores`, {
+      headers: PANEL_CTX.token ? { Authorization: `Bearer ${PANEL_CTX.token}` } : undefined,
+    })
       .then(res => res.json())
       .then(data => {
         if (data?.success && data.data) {
@@ -106,6 +110,7 @@ export function OcrConfigPanel() {
           });
           setActoresLoad('ready');
         } else {
+          setActoresError(typeof data?.message === 'string' ? data.message : '');
           setActoresLoad('error');
         }
       })
@@ -462,7 +467,7 @@ export function OcrConfigPanel() {
                       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3">
                           <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
-                          <p className="text-amber-700 text-sm font-medium">No se pudo cargar el catálogo de canales/gestores del Core.</p>
+                          <p className="text-amber-700 text-sm font-medium">{actoresError || 'No se pudo cargar el catálogo de canales/gestores del Core.'}</p>
                         </div>
                         <button
                           onClick={() => setActoresLoad('idle')}
