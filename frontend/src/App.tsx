@@ -35,6 +35,7 @@ import {
   toDiligenciaDocTypes,
 } from './lib/diligencia';
 import { isDocOcrDataValid } from './lib/identificacion';
+import { isOcrOpcionalForActor } from './lib/ocr-opcional';
 import type { DocType } from './types';
 import { isViajeroPersonas } from './lib/personas-product-label';
 
@@ -61,17 +62,19 @@ function MobileOcrContinueBar({
   canContinue,
   pendingHint,
   hidden,
+  label = 'Continuar',
 }: {
   onContinue: () => void;
   canContinue: boolean;
   pendingHint?: string;
   hidden?: boolean;
+  label?: string;
 }) {
   if (hidden) return null;
 
   return (
     <div className="md:hidden fixed bottom-0 inset-x-0 z-[60] border-t border-slate-200 bg-white/98 backdrop-blur-md px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-10px_28px_rgba(15,23,42,0.12)]">
-      {!canContinue && pendingHint && (
+      {pendingHint && (
         <p className="mb-2 text-center text-[0.68rem] font-medium leading-snug text-slate-500">
           {pendingHint}
         </p>
@@ -84,7 +87,7 @@ function MobileOcrContinueBar({
         onClick={onContinue}
         disabled={!canContinue}
       >
-        Continuar
+        {label}
         <ChevronRight size={16} />
       </Button>
     </div>
@@ -96,7 +99,7 @@ export default function App() {
     return <OcrConfigPanel />;
   }
 
-  const { step, documents, diligencia, tomador, nextStep, goTo, setMetadataCanal, builderProduct, carnetBinacionalMode, tarjeta } = useWizardStore();
+  const { step, documents, diligencia, tomador, nextStep, goTo, setMetadataCanal, metadataCanal, builderProduct, carnetBinacionalMode, tarjeta } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
@@ -238,18 +241,30 @@ export default function App() {
   }
 
   const { requiredDocs: effectiveRequiredDocs } = resolveEffectiveOcrDocs();
-  const canContinueOcr = effectiveRequiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
+  // OCR opcional por canal/gestor: el actor del token SSO está marcado en el
+  // parametrizador (config.ocrOpcional) → puede continuar sin documentos.
+  const ocrOpcionalCanal = isOcrOpcionalForActor(
+    config as Record<string, unknown> | null,
+    metadataCanal,
+  );
+  const ocrDocsCompletos = effectiveRequiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
+  const canContinueOcr = ocrDocsCompletos || ocrOpcionalCanal;
+  const continueOcrLabel = !ocrDocsCompletos && ocrOpcionalCanal ? 'Continuar sin documentos' : 'Continuar';
   const pendingDocsHint = effectiveRequiredDocs
     .filter((d) => !isDocOcrDataValid(d, documents[d]))
     .map((d) => DOC_LABELS[d] ?? d)
     .join(', ');
-  const ocrPendingHint = pendingDocsHint ? `Falta procesar o verificar: ${pendingDocsHint}` : undefined;
+  const ocrPendingHint = !pendingDocsHint
+    ? undefined
+    : ocrOpcionalCanal
+      ? 'El escaneo es opcional para tu canal: puedes continuar y cargar los datos a mano.'
+      : `Falta procesar o verificar: ${pendingDocsHint}`;
 
   function handleContinuar() {
     const { requiredDocs } = resolveEffectiveOcrDocs();
 
     const allValid = requiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
-    if (!allValid) {
+    if (!allValid && !ocrOpcionalCanal) {
       const lista = requiredDocs
         .filter((d) => !isDocOcrDataValid(d, documents[d]))
         .map((d) => DOC_LABELS[d] ?? d)
@@ -259,7 +274,11 @@ export default function App() {
     }
 
     if (builderCatalogMode && builderProduct) {
-      toast.success('Documentos listos', 'Continuando con el formulario de emisión…', 1200);
+      if (allValid) {
+        toast.success('Documentos listos', 'Continuando con el formulario de emisión…', 1200);
+      } else {
+        toast.success('Continuando sin documentos', 'Podrás cargar los datos a mano en el formulario.', 1200);
+      }
       advanceToFormulario();
       return;
     }
@@ -315,7 +334,7 @@ export default function App() {
                   disabled={!canContinueOcr}
                   className="min-w-[180px] btn-shine"
                 >
-                  Continuar
+                  {continueOcrLabel}
                   <ChevronRight size={15} />
                 </Button>
               </div>
@@ -360,6 +379,7 @@ export default function App() {
             canContinue={canContinueOcr}
             pendingHint={ocrPendingHint}
             onContinue={handleContinuar}
+            label={continueOcrLabel}
           />
         )}
       </>
@@ -487,7 +507,7 @@ export default function App() {
                     disabled={!canContinueOcr}
                     className="min-w-[180px] btn-shine"
                   >
-                    Continuar
+                    {continueOcrLabel}
                     <ChevronRight size={15} />
                   </Button>
                 </div>
@@ -504,6 +524,7 @@ export default function App() {
           canContinue={canContinueOcr}
           pendingHint={ocrPendingHint}
           onContinue={handleContinuar}
+          label={continueOcrLabel}
         />
       )}
     </div>
