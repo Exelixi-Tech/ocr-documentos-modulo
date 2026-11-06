@@ -3,8 +3,10 @@ import { useProductConfig } from '../hooks/useProductConfig';
 import { getProductId } from '../lib/product';
 import {
   Settings2, FileText, RotateCcw, Save, CheckCircle2,
-  AlertTriangle, Loader2, Plus, Trash2, ArrowLeftRight, ChevronUp, Sparkles, Maximize
+  AlertTriangle, Loader2, Plus, Trash2, ArrowLeftRight, ChevronUp, Sparkles, Maximize,
+  Network, Search, ScanLine
 } from 'lucide-react';
+import { moduleApiBase } from '../lib/app-base';
 import { AuroraBackground } from '../components/AuroraBackground';
 import { VisualTemplateBuilder } from './VisualTemplateBuilder';
 import { readConfigPanelContext } from './configPanelContext';
@@ -32,7 +34,27 @@ interface ApiMapEntry {
   note?: string;
 }
 
-type Tab = 'documentos' | 'mapeador' | 'visual';
+type Tab = 'documentos' | 'mapeador' | 'visual' | 'canales';
+
+interface CanalActor {
+  ccanalalt: number;
+  xcanalalt: string;
+  ctipocanal: string | null;
+}
+
+interface GestorActor {
+  cgestor: string;
+  xgestor: string;
+  ccanalalt: number | null;
+  cscanalalt: number | null;
+}
+
+interface OcrOpcionalState {
+  gestores: string[];
+  canales: string[];
+}
+
+type ActoresLoad = 'idle' | 'loading' | 'ready' | 'error';
 
 function Toggle({ on, onChange, disabled }: { on: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
@@ -65,6 +87,40 @@ export function OcrConfigPanel() {
   const [editingDocTemplate, setEditingDocTemplate] = useState<string | null>(null);
   const [uiPerProductor, setUiPerProductor] = useState<Record<string, Record<string, boolean>>>({});
   const [newProductorKey, setNewProductorKey] = useState('');
+  const [ocrOpcional, setOcrOpcional] = useState<OcrOpcionalState>({ gestores: [], canales: [] });
+  const [actores, setActores] = useState<{ canales: CanalActor[]; gestores: GestorActor[] }>({ canales: [], gestores: [] });
+  const [actoresLoad, setActoresLoad] = useState<ActoresLoad>('idle');
+  const [actorFilter, setActorFilter] = useState('');
+
+  // Catálogo de actores Sis2000 (vía el server del módulo → server-api-sys).
+  useEffect(() => {
+    if (tab !== 'canales' || actoresLoad === 'ready' || actoresLoad === 'loading') return;
+    setActoresLoad('loading');
+    fetch(`${moduleApiBase()}/catalog/actores`)
+      .then(res => res.json())
+      .then(data => {
+        if (data?.success && data.data) {
+          setActores({
+            canales: Array.isArray(data.data.canales) ? data.data.canales : [],
+            gestores: Array.isArray(data.data.gestores) ? data.data.gestores : [],
+          });
+          setActoresLoad('ready');
+        } else {
+          setActoresLoad('error');
+        }
+      })
+      .catch(() => setActoresLoad('error'));
+  }, [tab, actoresLoad]);
+
+  const toggleOcrOpcional = useCallback((tipo: 'gestores' | 'canales', code: string, obligatorio: boolean) => {
+    setOcrOpcional(prev => {
+      const list = prev[tipo];
+      // toggle ON = obligatorio → el código sale de la lista de opcionales.
+      const next = obligatorio ? list.filter(c => c !== code) : (list.includes(code) ? list : [...list, code]);
+      return { ...prev, [tipo]: next };
+    });
+    setSaved(false);
+  }, []);
 
   const UI_FLAG_LABELS = [
     { key: 'hideHeader',      label: 'Ocultar cabecera (logo / marca)' },
@@ -94,6 +150,11 @@ export function OcrConfigPanel() {
     setEscaneoLoteBeneficiarios(config.escaneoLoteBeneficiarios ?? false);
     setValidarVigencia(config.validarVigencia ?? true);
     setUiPerProductor((config.ui?.perProductor as Record<string, Record<string, boolean>>) ?? {});
+    const oc = config.ocrOpcional as Partial<OcrOpcionalState> | undefined;
+    setOcrOpcional({
+      gestores: Array.isArray(oc?.gestores) ? oc!.gestores!.map(String) : [],
+      canales: Array.isArray(oc?.canales) ? oc!.canales!.map(String) : [],
+    });
   }, [config]);
 
   const updateDoc = useCallback((key: string, field: keyof DocField, val: any) => {
@@ -146,6 +207,7 @@ export function OcrConfigPanel() {
       escaneoLoteBeneficiarios,
       validarVigencia,
       ui: { perProductor: uiPerProductor },
+      ocrOpcional,
     };
     if (producto === 'rcv') {
       payload.documentosPorDiligencia = {
@@ -203,7 +265,7 @@ export function OcrConfigPanel() {
           <div className="p-6 sm:p-8 lg:p-10">
             {/* Tabs */}
             <div className="flex flex-col sm:flex-row gap-2 mb-8 bg-slate-100/50 p-1.5 rounded-xl border border-slate-200/50 backdrop-blur-sm">
-              {([['documentos', 'Documentos', FileText], ['mapeador', 'Mapeador API', ArrowLeftRight], ['visual', 'Visual SSO', Maximize]] as const).map(([t, label, Icon]) => (
+              {([['documentos', 'Documentos', FileText], ['mapeador', 'Mapeador API', ArrowLeftRight], ['visual', 'Visual SSO', Maximize], ['canales', 'OCR por canal', Network]] as const).map(([t, label, Icon]) => (
                 <button
                   key={t}
                   onClick={() => setTab(t as Tab)}
@@ -375,6 +437,180 @@ export function OcrConfigPanel() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+
+                {/* ── TAB OCR POR CANAL ── */}
+                {tab === 'canales' && (
+                  <div className="space-y-5">
+                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm text-indigo-700">
+                      <p className="font-bold mb-1 flex items-center gap-1.5"><ScanLine size={14} /> OCR obligatorio u opcional por canal / gestor</p>
+                      <p className="text-xs text-indigo-500">
+                        Con el toggle <strong>activado</strong> el canal o gestor exige escanear los documentos (comportamiento actual).
+                        Al <strong>desactivarlo</strong>, sus usuarios ven el paso OCR pero pueden <strong>continuar sin documentos</strong> y
+                        cargar los datos a mano en el formulario. Todo actor nuevo entra como obligatorio.
+                      </p>
+                    </div>
+
+                    {actoresLoad === 'loading' && (
+                      <div className="flex items-center justify-center gap-3 py-16 text-slate-500">
+                        <Loader2 size={18} className="animate-spin" /><span className="text-sm">Cargando canales y gestores…</span>
+                      </div>
+                    )}
+
+                    {actoresLoad === 'error' && (
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                          <p className="text-amber-700 text-sm font-medium">No se pudo cargar el catálogo de canales/gestores del Core.</p>
+                        </div>
+                        <button
+                          onClick={() => setActoresLoad('idle')}
+                          className="px-4 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors shrink-0"
+                        >
+                          Reintentar
+                        </button>
+                      </div>
+                    )}
+
+                    {actoresLoad === 'ready' && (
+                      <>
+                        <div className="relative">
+                          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            className="w-full text-sm border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 outline-none focus:border-indigo-400 bg-white"
+                            placeholder="Buscar por nombre o código…"
+                            value={actorFilter}
+                            onChange={e => setActorFilter(e.target.value)}
+                          />
+                        </div>
+
+                        {(() => {
+                          const MAX_ROWS = 50;
+                          const f = actorFilter.trim().toLowerCase();
+
+                          const canalRow = (c: CanalActor) => ({
+                            code: String(c.ccanalalt),
+                            nombre: c.xcanalalt,
+                            detalle: `ccanalalt ${c.ccanalalt}`,
+                          });
+                          const gestorRow = (g: GestorActor) => ({
+                            code: g.cgestor,
+                            nombre: g.xgestor,
+                            detalle: `cgestor ${g.cgestor}${g.ccanalalt != null ? ` · canal ${g.ccanalalt}` : ''}`,
+                          });
+
+                          // Los marcados como opcionales siempre se muestran; el resto según el buscador,
+                          // con tope de filas (hay miles de gestores).
+                          const buildRows = <T,>(
+                            all: T[],
+                            marked: (x: T) => boolean,
+                            matches: (x: T, f: string) => boolean,
+                            toRow: (x: T) => { code: string; nombre: string; detalle: string },
+                            requireFilter: boolean,
+                          ) => {
+                            const fijos = all.filter(marked).map(toRow);
+                            const seen = new Set(fijos.map(r => r.code));
+                            let resto: T[] = [];
+                            let truncated = 0;
+                            if (f) {
+                              const found = all.filter(x => !marked(x) && matches(x, f));
+                              truncated = Math.max(0, found.length - MAX_ROWS);
+                              resto = found.slice(0, MAX_ROWS);
+                            } else if (!requireFilter) {
+                              resto = all.filter(x => !marked(x));
+                            }
+                            return {
+                              rows: [...fijos, ...resto.map(toRow).filter(r => !seen.has(r.code))],
+                              truncated,
+                              needsFilter: requireFilter && !f,
+                            };
+                          };
+
+                          const secciones = [
+                            {
+                              titulo: 'Canales alternos',
+                              tipo: 'canales' as const,
+                              total: actores.canales.length,
+                              ...buildRows(
+                                actores.canales,
+                                c => ocrOpcional.canales.includes(String(c.ccanalalt)),
+                                (c, q) => c.xcanalalt.toLowerCase().includes(q) || String(c.ccanalalt).includes(q),
+                                canalRow,
+                                false,
+                              ),
+                            },
+                            {
+                              titulo: 'Gestores',
+                              tipo: 'gestores' as const,
+                              total: actores.gestores.length,
+                              ...buildRows(
+                                actores.gestores,
+                                g => ocrOpcional.gestores.includes(g.cgestor),
+                                (g, q) => g.xgestor.toLowerCase().includes(q) || g.cgestor.toLowerCase().includes(q),
+                                gestorRow,
+                                true,
+                              ),
+                            },
+                          ];
+
+                          return secciones.map(({ titulo, tipo, rows, total, truncated, needsFilter }) => (
+                          <div key={tipo}>
+                            <div className="flex items-center justify-between mb-3 mt-2">
+                              <p className="text-xs font-black text-slate-500 uppercase tracking-widest">{titulo}</p>
+                              <span className="text-[11px] font-semibold text-slate-400">
+                                {ocrOpcional[tipo].length > 0
+                                  ? `${ocrOpcional[tipo].length} con OCR opcional`
+                                  : 'Todos obligatorios'}
+                              </span>
+                            </div>
+                            {rows.length === 0 && (
+                              <div className="text-center py-8 text-slate-400 text-sm rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
+                                {needsFilter
+                                  ? `Usa el buscador para encontrar entre los ${total.toLocaleString('es-VE')} gestores (por nombre o código).`
+                                  : 'Sin resultados.'}
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              {rows.map(({ code, nombre, detalle }) => {
+                                const obligatorio = !ocrOpcional[tipo].includes(code);
+                                return (
+                                  <div
+                                    key={code}
+                                    className={`rounded-2xl border p-3.5 flex items-center gap-4 transition-all ${obligatorio ? 'border-slate-200 bg-white shadow-sm' : 'border-indigo-200 bg-indigo-50/40'}`}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-bold text-slate-800 text-sm truncate">{nombre || code}</p>
+                                      <p className="text-xs text-slate-500 font-mono">{detalle}</p>
+                                    </div>
+                                    {!obligatorio && (
+                                      <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold shrink-0">
+                                        OCR opcional
+                                      </span>
+                                    )}
+                                    <div className="flex flex-col items-center gap-1 shrink-0">
+                                      <span className="text-[9px] font-bold text-slate-500 uppercase">Obligatorio</span>
+                                      <Toggle on={obligatorio} onChange={v => toggleOcrOpcional(tipo, code, v)} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            {truncated > 0 && (
+                              <p className="mt-2 text-center text-[11px] text-slate-400">
+                                {truncated.toLocaleString('es-VE')} resultado(s) más — refina la búsqueda.
+                              </p>
+                            )}
+                            {rows.length > 0 && needsFilter && (
+                              <p className="mt-2 text-center text-[11px] text-slate-400">
+                                Mostrando solo los marcados. Usa el buscador para ver los {total.toLocaleString('es-VE')} gestores.
+                              </p>
+                            )}
+                          </div>
+                          ));
+                        })()}
+                      </>
+                    )}
                   </div>
                 )}
 
