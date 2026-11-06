@@ -11,22 +11,18 @@ const router = express.Router();
 const ACTORES_CACHE_TTL_MS = 5 * 60 * 1000;
 let actoresCache = { at: 0, data: null };
 
-function lmBaseUrl() {
+// server-api-sys (nest-api), NO el SysIP de tarjetas: /api/v1/canal/actores
+// vive en nexusqa.exelixitech.com/nest-api-docs (QA) y exige apikey (maclient_api).
+function nestBaseUrl() {
   return (
-    process.env.LAMUNDIAL_CARDS_URL
-    || process.env.LAMUNDIAL_BASE_URL
-    || 'https://qaapisys2000.lamundialdeseguros.com'
+    process.env.NEST_API_URL
+    || 'https://nexusqa.exelixitech.com/nest-api-docs'
   ).replace(/\/$/, '');
 }
 
-function lmHeaders() {
+function nestHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  const key = (
-    process.env.LAMUNDIAL_CARDS_APIKEY
-    || process.env.LAMUNDIAL_APIKEY
-    || process.env.LAMUNDIAL_EMISSION_APIKEY
-    || ''
-  ).trim();
+  const key = (process.env.NEST_APIKEY || '').trim();
   if (key) headers.apikey = key;
   return headers;
 }
@@ -46,8 +42,8 @@ router.get('/actores', async (_req, res) => {
     return res.json({ success: true, data: actoresCache.data, cached: true });
   }
   try {
-    const upstream = await axios.get(`${lmBaseUrl()}/api/v1/canal/actores`, {
-      headers: lmHeaders(),
+    const upstream = await axios.get(`${nestBaseUrl()}/api/v1/canal/actores`, {
+      headers: nestHeaders(),
       timeout: parseInt(process.env.LAMUNDIAL_TIMEOUT_MS, 10) || 20000,
       validateStatus: () => true,
     });
