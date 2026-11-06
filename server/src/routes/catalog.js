@@ -11,12 +11,14 @@ const router = express.Router();
 const ACTORES_CACHE_TTL_MS = 5 * 60 * 1000;
 let actoresCache = { at: 0, data: null };
 
-// server-api-sys (nest-api), NO el SysIP de tarjetas: /api/v1/canal/actores
-// vive en nexusqa.exelixitech.com/nest-api-docs (QA) y exige apikey (maclient_api).
+// server-api-sys (nest-api), NO el SysIP de tarjetas. Misma convención que
+// activacionTarjeta: módulo y nest-api conviven en el mismo servidor
+// (QA: nexusqa…/nest-api-docs público, 127.0.0.1:3002 local).
 function nestBaseUrl() {
   return (
     process.env.NEST_API_URL
-    || 'https://nexusqa.exelixitech.com/nest-api-docs'
+    || process.env.SYSIP_API_URL
+    || 'http://127.0.0.1:3002'
   ).replace(/\/$/, '');
 }
 
