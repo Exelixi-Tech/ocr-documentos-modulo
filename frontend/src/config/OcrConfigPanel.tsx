@@ -226,7 +226,8 @@ export function OcrConfigPanel() {
         }),
       };
     }
-    await saveConfig(payload);
+    const guardado = await saveConfig(payload);
+    if (!guardado) return;
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }

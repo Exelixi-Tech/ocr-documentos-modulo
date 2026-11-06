@@ -25,7 +25,7 @@ function nestBaseUrl() {
 
 function nestHeaders() {
   const headers = { 'Content-Type': 'application/json' };
-  const key = (process.env.NEST_APIKEY || '').trim();
+  const key = (process.env.NEST_API_KEY || process.env.NEST_APIKEY || '').trim();
   if (key) headers.apikey = key;
   return headers;
 }
@@ -57,6 +57,7 @@ router.get('/actores', requireConfigPanelToken, async (_req, res) => {
     });
     const body = upstream.data;
     if (upstream.status >= 400 || !body || body.status !== true || !body.data) {
+      console.error(`[catalog] actores: el Core respondió ${upstream.status}`);
       // Si el Core falla, servir el último catálogo conocido aunque esté vencido.
       if (actoresCache.data) {
         return res.json({ success: true, data: actoresCache.data, cached: true, stale: true });
