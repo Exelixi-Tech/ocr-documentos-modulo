@@ -9,6 +9,8 @@ export function moduleApiBase(): string {
   if (base === './' && typeof window !== 'undefined') {
     let path = window.location.pathname;
     if (path.endsWith('/index.html')) path = path.slice(0, -'/index.html'.length);
+    // /ocr/config es una ruta de la SPA: bajo ella Apache responde index.html con 200.
+    path = path.replace(/\/config\/?$/, '/');
     if (!path.endsWith('/')) path += '/';
     return `${path}api`;
   }

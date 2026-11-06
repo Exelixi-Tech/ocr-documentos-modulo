@@ -10,9 +10,10 @@ export type ConfigPanelContext = {
   cusuario?: string;
   ctipocanal?: string;
   metadata: Record<string, string>;
+  token: string;
 };
 
-function decodeJwtPayload(token: string): Record<string, unknown> | null {
+export function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const part = token.split('.')[1];
     if (!part) return null;
@@ -70,5 +71,5 @@ export function readConfigPanelContext(): ConfigPanelContext {
   if (cusuario) metadata.cusuario = cusuario;
   if (ctipocanal) metadata.ctipocanal = ctipocanal;
 
-  return { empresaId, canal, cproductor, cusuario, ctipocanal, metadata };
+  return { empresaId, canal, cproductor, cusuario, ctipocanal, metadata, token };
 }

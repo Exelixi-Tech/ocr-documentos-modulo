@@ -35,7 +35,7 @@ import {
 } from '../../lib/ocr-binacional';
 import { extractTomadorFromCertificado } from '../../lib/carnet-propietario';
 import { resolveOcrPersonRoles } from '../../lib/ocr-person-roles';
-import { isOcrOpcionalForActor } from '../../lib/ocr-opcional';
+import { useOcrOpcional } from '../../hooks/useOcrOpcional';
 import { isCedulaOcrSlot } from '../../lib/ocr-engine-doc';
 import { applyFuneralOcrCedulas } from '../../lib/funeral-ocr-apply';
 import {
@@ -852,7 +852,6 @@ export function OcrStep() {
     documents, ocrDone, setOcrDone, setTomador, setVehicle, tomador,
     builderProduct, carnetBinacionalMode, diligencia, setDiligencia,
     titularFromCarnet, asegurado, hasDriver, conductor, tarjeta,
-    metadataCanal,
   } = useWizardStore();
   const catalogs = useCatalogs();
   const [preview, setPreview] = useState<{ file: DocumentFile; title: string } | null>(null);
@@ -860,6 +859,7 @@ export function OcrStep() {
   // Producto activo y configuración desde Nexus
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
+  const ocrOpcionalCanal = useOcrOpcional(product.id);
   const hasVehicle = builderProduct
     ? branchHasVehicle(builderProduct.branch)
     : product.hasVehicle;
@@ -1064,11 +1064,6 @@ export function OcrStep() {
     effectiveRequired.length > 0
       ? (completedCount / effectiveRequired.length) * 100
       : 0;
-
-  const ocrOpcionalCanal = isOcrOpcionalForActor(
-    config as Record<string, unknown> | null,
-    metadataCanal,
-  );
 
   return (
     <div className="animate-fade-in">

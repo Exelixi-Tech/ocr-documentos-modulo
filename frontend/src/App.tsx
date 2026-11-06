@@ -35,7 +35,7 @@ import {
   toDiligenciaDocTypes,
 } from './lib/diligencia';
 import { isDocOcrDataValid } from './lib/identificacion';
-import { isOcrOpcionalForActor } from './lib/ocr-opcional';
+import { useOcrOpcional } from './hooks/useOcrOpcional';
 import type { DocType } from './types';
 import { isViajeroPersonas } from './lib/personas-product-label';
 
@@ -99,7 +99,7 @@ export default function App() {
     return <OcrConfigPanel />;
   }
 
-  const { step, documents, diligencia, tomador, nextStep, goTo, setMetadataCanal, metadataCanal, builderProduct, carnetBinacionalMode, tarjeta } = useWizardStore();
+  const { step, documents, diligencia, tomador, nextStep, goTo, setMetadataCanal, builderProduct, carnetBinacionalMode, tarjeta } = useWizardStore();
   const product = getProductConfig();
   const { config } = useProductConfig(EMPRESA_ID, product.id, 'ocr');
   const builderCatalogMode = useBuilderCatalog();
@@ -241,12 +241,7 @@ export default function App() {
   }
 
   const { requiredDocs: effectiveRequiredDocs } = resolveEffectiveOcrDocs();
-  // OCR opcional por canal/gestor: el actor del token SSO está marcado en el
-  // parametrizador (config.ocrOpcional) → puede continuar sin documentos.
-  const ocrOpcionalCanal = isOcrOpcionalForActor(
-    config as Record<string, unknown> | null,
-    metadataCanal,
-  );
+  const ocrOpcionalCanal = useOcrOpcional(product.id);
   const ocrDocsCompletos = effectiveRequiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
   const canContinueOcr = ocrDocsCompletos || ocrOpcionalCanal;
   const continueOcrLabel = !ocrDocsCompletos && ocrOpcionalCanal ? 'Continuar sin documentos' : 'Continuar';
