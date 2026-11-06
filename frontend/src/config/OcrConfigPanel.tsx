@@ -506,8 +506,8 @@ export function OcrConfigPanel() {
                             detalle: `cgestor ${g.cgestor}${g.ccanalalt != null ? ` · canal ${g.ccanalalt}` : ''}`,
                           });
 
-                          // Los marcados como opcionales siempre se muestran; el resto según el buscador,
-                          // con tope de filas (hay miles de gestores).
+                          // El orden no depende del estado del toggle: si una fila cambiara de sitio
+                          // al marcarla, otra quedaría bajo el cursor. Hay miles de gestores, por eso el tope.
                           const buildRows = <T,>(
                             all: T[],
                             marked: (x: T) => boolean,
@@ -515,22 +515,16 @@ export function OcrConfigPanel() {
                             toRow: (x: T) => { code: string; nombre: string; detalle: string },
                             requireFilter: boolean,
                           ) => {
-                            const fijos = all.filter(marked).map(toRow);
-                            const seen = new Set(fijos.map(r => r.code));
-                            let resto: T[] = [];
-                            let truncated = 0;
                             if (f) {
-                              const found = all.filter(x => !marked(x) && matches(x, f));
-                              truncated = Math.max(0, found.length - MAX_ROWS);
-                              resto = found.slice(0, MAX_ROWS);
-                            } else if (!requireFilter) {
-                              resto = all.filter(x => !marked(x));
+                              const found = all.filter(x => matches(x, f));
+                              return {
+                                rows: found.slice(0, MAX_ROWS).map(toRow),
+                                truncated: Math.max(0, found.length - MAX_ROWS),
+                                needsFilter: false,
+                              };
                             }
-                            return {
-                              rows: [...fijos, ...resto.map(toRow).filter(r => !seen.has(r.code))],
-                              truncated,
-                              needsFilter: requireFilter && !f,
-                            };
+                            const visibles = requireFilter ? all.filter(marked) : all;
+                            return { rows: visibles.map(toRow), truncated: 0, needsFilter: requireFilter };
                           };
 
                           const secciones = [
