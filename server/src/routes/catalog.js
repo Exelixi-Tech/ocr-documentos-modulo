@@ -4,6 +4,7 @@
 const express = require('express');
 const axios = require('axios');
 const builder = require('../services/productBuilderClient');
+const requireConfigPanelToken = require('../middleware/requireConfigPanelToken');
 
 const router = express.Router();
 
@@ -35,11 +36,16 @@ function nestHeaders() {
  *   get:
  *     tags: [Catálogo]
  *     summary: Canales alternos y gestores activos (Sis2000, vía server-api-sys)
+ *     description: Requiere el token del parametrizador (scope config-panel).
  *     responses:
  *       200:
  *         description: "{ canales: [...], gestores: [...] }"
+ *       401:
+ *         description: Token ausente o inválido
+ *       403:
+ *         description: El token no es del parametrizador
  */
-router.get('/actores', async (_req, res) => {
+router.get('/actores', requireConfigPanelToken, async (_req, res) => {
   if (actoresCache.data && Date.now() - actoresCache.at < ACTORES_CACHE_TTL_MS) {
     return res.json({ success: true, data: actoresCache.data, cached: true });
   }
