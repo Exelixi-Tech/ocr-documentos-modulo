@@ -224,6 +224,78 @@ async function commitExpediente(payload) {
   return { destDir, saved, skipped };
 }
 
+/**
+ * Carpeta de una póliza ya archivada: {empresa}/{cedula}/{recibo-aa-mes-poliza}.
+ * Recorre las empresas en orden y devuelve la primera coincidencia. Dentro de una empresa
+ * prefiere recibo + póliza; si no, solo póliza (la más reciente: renovaciones/otros recibos).
+ * @param {string[]} empresas  nombres de carpeta de empresa (ya saneados)
+ * @param {unknown} cedula
+ * @param {unknown} cnpoliza
+ * @param {unknown} [cnrecibo]
+ * @returns {string|null} ruta absoluta o null si no existe
+ */
+function findPolicyDir(empresas, cedula, cnpoliza, cnrecibo) {
+  const ci = sanitizeCedula(cedula);
+  const poliza = String(cnpoliza || '').replace(/\D/g, '');
+  const recibo = String(cnrecibo || '').replace(/\D/g, '');
+  if (!ci || !poliza) return null;
+  for (const empresa of empresas || []) {
+    const base = expedienteDir(empresa, ci);
+    let entries;
+    try {
+      entries = fs.readdirSync(base, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    let best = null;
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const parts = entry.name.split('-');
+      if (parts.length < 4 || parts[parts.length - 1] !== poliza) continue;
+      const abs = path.join(base, entry.name);
+      const score = recibo && parts[0] === recibo ? 1 : 0;
+      let mtime = 0;
+      try { mtime = fs.statSync(abs).mtimeMs; } catch { /* sin fecha */ }
+      if (!best || score > best.score || (score === best.score && mtime > best.mtime)) {
+        best = { abs, score, mtime };
+      }
+    }
+    if (best) return best.abs;
+  }
+  return null;
+}
+
+/**
+ * Guarda srcPath en destDir como {base}{ext} sin pisar ni borrar nada del expediente:
+ * si el nombre existe usa {base}-{timestamp}{ext}. Solo elimina el temporal de origen.
+ * @param {string} srcPath
+ * @param {string} destDir
+ * @param {string} baseName  tipo de documento (cedula, licencia…)
+ * @returns {Promise<{ absPath: string, url: string }>}
+ */
+async function placeNoOverwrite(srcPath, destDir, baseName) {
+  ensureDirSync(destDir);
+  const ext = path.extname(srcPath) || '.webp';
+  const key = String(baseName || '').replace(/[^\w-]/g, '');
+  const base = DOC_FILE_NAMES[key] || key || 'documento';
+  for (let i = 0; i < 6; i += 1) {
+    const name = i === 0 ? `${base}${ext}` : `${base}-${Date.now()}${i > 1 ? `-${i}` : ''}${ext}`;
+    const dest = path.join(destDir, name);
+    try {
+      // COPYFILE_EXCL: falla si el destino existe (nunca sobrescribe).
+      await fsp.copyFile(srcPath, dest, fs.constants.COPYFILE_EXCL);
+    } catch (err) {
+      if (err && err.code === 'EEXIST') continue;
+      throw err;
+    }
+    await fsp.unlink(srcPath).catch(() => {});
+    return { absPath: dest, url: publicFileUrl(dest) };
+  }
+  const err = new Error('No se encontró un nombre libre para el documento.');
+  err.code = 'EXPEDIENTE_NOMBRE_OCUPADO';
+  throw err;
+}
+
 module.exports = {
   UPLOAD_ROOT,
   uploadRoot,
@@ -235,4 +307,6 @@ module.exports = {
   publicFileUrl,
   placePending,
   commitExpediente,
+  findPolicyDir,
+  placeNoOverwrite,
 };
