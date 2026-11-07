@@ -130,6 +130,7 @@ test('póliza archivada: guarda en su carpeta sin pisar el archivo existente y d
     confianza: 1,
     proveedor: 'gemini',
   });
+  assert.match(r.body.hash, /^[0-9a-f]{64}$/);
   assert.equal(fs.readFileSync(path.join(POLIZA_DIR, 'cedula.pdf'), 'utf8'), 'ORIGINAL');
   assert.ok(fs.existsSync(path.join(ROOT, ...r.body.ref.split('/'))));
   assert.ok(tmpVacio());
@@ -165,7 +166,9 @@ test('documento que no coincide con el tipo: guardado, confianza 0 con el motivo
   }));
   const r = await post(form(campos));
   assert.equal(r.status, 200);
-  assert.deepEqual(r.body.ocr, { extraido: null, confianza: 0, motivo: 'Parece una licencia', proveedor: 'gemini' });
+  assert.deepEqual(r.body.ocr, {
+    extraido: null, confianza: 0, motivo: 'Parece una licencia', proveedor: 'gemini', falla: 'tipo_documento',
+  });
 });
 
 test('OCR simulado (mock) nunca devuelve datos para validar', async () => {

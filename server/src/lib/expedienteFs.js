@@ -296,8 +296,77 @@ async function placeNoOverwrite(srcPath, destDir, baseName) {
   throw err;
 }
 
+/** `rel` (resultado de path.relative) apunta dentro de la raíz y no es la raíz misma. */
+function dentroDeRaiz(rel) {
+  return Boolean(rel) && !path.isAbsolute(rel) && rel.split(path.sep)[0] !== '..';
+}
+
+/**
+ * Ruta absoluta de un documento YA guardado en el expediente, a partir del `ref` que guarda Nexus:
+ * ruta relativa a EXPEDIENTES_ROOT ({empresa}/{cédula}/{carpeta}/{archivo}) o URL pública
+ * (/files/..., /ocr/files/..., https://host/ocr/files/...). Devuelve null si el ref es inválido o
+ * si la ruta resuelta (también siguiendo enlaces simbólicos) sale de EXPEDIENTES_ROOT.
+ * No crea, mueve ni borra nada; no comprueba que el archivo exista.
+ * @param {unknown} ref
+ * @returns {string|null}
+ */
+function resolveExpedienteRef(ref) {
+  const raw = typeof ref === 'string' ? ref.trim() : '';
+  if (!raw || raw.length > 1000 || raw.includes('\0')) return null;
+  let rel = raw;
+  const esUrl = /^https?:\/\//i.test(rel);
+  if (esUrl || /(^|\/)files\//.test(rel)) {
+    try {
+      if (esUrl) rel = new URL(rel).pathname;
+      const idx = rel.indexOf('/files/');
+      if (idx >= 0) rel = rel.slice(idx + '/files/'.length);
+      else if (rel.startsWith('files/')) rel = rel.slice('files/'.length);
+      rel = decodeURIComponent(rel);
+    } catch {
+      return null;
+    }
+  }
+  if (!rel || rel.includes('\0') || path.isAbsolute(rel) || /^[a-zA-Z]:/.test(rel) || /^[\\/]/.test(rel)) {
+    return null;
+  }
+  const root = path.resolve(UPLOAD_ROOT);
+  const abs = path.resolve(root, rel);
+  if (!dentroDeRaiz(path.relative(root, abs))) return null;
+  // Si existe, la ruta real (enlaces simbólicos resueltos) también debe quedar dentro.
+  let real = null;
+  try {
+    real = fs.realpathSync(abs);
+  } catch {
+    return abs;
+  }
+  let realRoot = root;
+  try { realRoot = fs.realpathSync(root); } catch { /* raíz aún no creada */ }
+  return dentroDeRaiz(path.relative(realRoot, real)) ? real : null;
+}
+
+const MIME_POR_EXTENSION = {
+  '.webp': 'image/webp',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.pdf': 'application/pdf',
+  '.heic': 'image/heic',
+  '.heif': 'image/heif',
+};
+
+/**
+ * MIME de un documento del expediente por su extensión (los guardados son webp normalizado o PDF).
+ * @param {string} filePath
+ * @returns {string|null}
+ */
+function mimeFromPath(filePath) {
+  return MIME_POR_EXTENSION[path.extname(String(filePath || '')).toLowerCase()] || null;
+}
+
 module.exports = {
   UPLOAD_ROOT,
+  resolveExpedienteRef,
+  mimeFromPath,
   uploadRoot,
   sanitizeFolderName,
   sanitizeCedula,

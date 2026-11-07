@@ -7,8 +7,16 @@
  *   - Misma validación que /api/documents/upload: tipo, MIME y tamaño (UPLOAD_MAX_SIZE_MB, 25 MB por defecto).
  *   - Guarda en {empresa}/{cédula}/{recibo-aa-mes-póliza}/ o, si esa carpeta no existe, en
  *     {empresa}/{cédula}/pendiente/. Nunca borra ni pisa archivos del expediente.
- *   - Ejecuta la extracción OCR existente y responde { ok, ref, ocr: { extraido, confianza } }.
+ *   - Ejecuta la extracción OCR existente y responde { ok, ref, hash, ocr: { extraido, confianza } }.
  *     Recibir un archivo no lo valida: la comparación con la póliza la hace Nexus.
+ *
+ * POST /api/internal/expedientes/analizar  (JSON: { ref, tipo, aceptaRif? })
+ *   - Validación automática con IA: lee un archivo YA guardado en EXPEDIENTES_ROOT/ref (sin path
+ *     traversal), ejecuta la misma extracción OCR y responde { ok, ref, hash, ocr }.
+ *     No copia, no mueve y no borra nada.
+ *
+ * ocr.falla (opcional): 'tecnica' = no hubo lectura real (Gemini caído, OCR simulado, formato no
+ * soportado por el proveedor); 'tipo_documento' = el documento no es del tipo pedido.
  *
  * No usa nexusAuth (lo llama Nexus, no el navegador). No loguea datos personales.
  */
@@ -25,6 +33,31 @@ const router = express.Router();
 
 function sha256(v) {
   return crypto.createHash('sha256').update(String(v)).digest();
+}
+
+/** SHA-256 (hex) del contenido de un archivo, por flujo. */
+function hashArchivo(absPath) {
+  return new Promise((resolve, reject) => {
+    const h = crypto.createHash('sha256');
+    fs.createReadStream(absPath)
+      .on('error', reject)
+      .on('data', (chunk) => h.update(chunk))
+      .on('end', () => resolve(h.digest('hex')));
+  });
+}
+
+/**
+ * Tipo de requisito del expediente → esquema OCR. El pasaporte y las cédulas de titular o
+ * beneficiario se leen con el esquema de cédula (el OCR acepta pasaporte en ese slot: MRZ).
+ */
+const TIPO_OCR = {
+  pasaporte: 'cedula',
+  cedula_titular: 'cedula',
+  cedula_beneficiario: 'cedula',
+};
+
+function tipoOcrDe(tipo) {
+  return TIPO_OCR[tipo] || tipo;
 }
 
 /** x-expediente-key obligatorio; sin EXPEDIENTE_INTERNAL_KEY el endpoint queda apagado (503). */
@@ -85,21 +118,35 @@ function pendienteDir(empresas, cedula) {
  * confianza: 1 = Gemini leyó los campos críticos y el tipo coincide;
  *            0.5 = lectura parcial (faltan campos críticos o tipo dudoso aceptado);
  *            0 = sin lectura útil (tipo no coincide, OCR caído u OCR simulado).
+ * falla: 'tecnica' (sin lectura real: Nexus reintenta, no lo marca ilegible) |
+ *        'tipo_documento' (el archivo no es del tipo pedido).
  */
 async function extraer(file, tipo, opts) {
   try {
-    const r = await documentService.runOcr(file, tipo, null, opts);
+    const r = await documentService.runOcr(file, tipoOcrDe(tipo), null, opts);
     const proveedor = r?.provider || null;
     const rechazo = r?.mismatch || r?.planMismatch || r?.facturaInvalida;
-    if (rechazo) return { extraido: null, confianza: 0, motivo: rechazo.message || 'El documento no coincide con el tipo.', proveedor };
-    if (r?.ocrFailed) return { extraido: null, confianza: 0, motivo: 'No se pudo leer el documento (OCR no disponible).', proveedor };
-    if (proveedor !== 'gemini') return { extraido: null, confianza: 0, motivo: 'OCR simulado: sin lectura real.', proveedor };
+    if (rechazo) {
+      return {
+        extraido: null,
+        confianza: 0,
+        motivo: rechazo.message || 'El documento no coincide con el tipo.',
+        proveedor,
+        falla: 'tipo_documento',
+      };
+    }
+    if (r?.ocrFailed) {
+      return { extraido: null, confianza: 0, motivo: 'No se pudo leer el documento (OCR no disponible).', proveedor, falla: 'tecnica' };
+    }
+    if (proveedor !== 'gemini') {
+      return { extraido: null, confianza: 0, motivo: 'OCR simulado: sin lectura real.', proveedor, falla: 'tecnica' };
+    }
     const attempts = Array.isArray(r.meta?.chainAttempts) ? r.meta.chainAttempts : [];
     const last = attempts[attempts.length - 1];
     const confianza = last && last.criticalOk === false ? 0.5 : 1;
     return { extraido: r.fields || null, confianza, proveedor };
   } catch {
-    return { extraido: null, confianza: 0, motivo: 'Error al leer el documento.', proveedor: null };
+    return { extraido: null, confianza: 0, motivo: 'Error al leer el documento.', proveedor: null, falla: 'tecnica' };
   }
 }
 
@@ -187,10 +234,11 @@ router.post('/documento', requireInternalKey, receiveFile, async (req, res) => {
       aceptaRif: String(body.aceptaRif ?? '') === '1',
       rifSoloNatural: String(body.rifSoloNatural ?? '') === '1',
     });
+    const hash = await hashArchivo(placed.absPath).catch(() => null);
     console.log(
       `[modulo-ocr/expediente-documento] tipo=${tipo} ubicacion=${ubicacion} proveedor=${ocr.proveedor || '-'} confianza=${ocr.confianza}`,
     );
-    return res.status(200).json({ ok: true, ref, ubicacion, ocr });
+    return res.status(200).json({ ok: true, ref, hash, ubicacion, ocr });
   } catch (err) {
     await descartar();
     // Solo el código: los mensajes de fs traen rutas con la cédula.
@@ -199,5 +247,89 @@ router.post('/documento', requireInternalKey, receiveFile, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /api/internal/expedientes/analizar:
+ *   post:
+ *     tags: [Documentos]
+ *     summary: (Interno) Analiza con OCR un documento ya guardado en el expediente
+ *     description: |
+ *       Servidor a servidor (Nexus → OCR), para la validación automática con IA del monitor de
+ *       expedientes. Requiere `x-expediente-key` = `EXPEDIENTE_INTERNAL_KEY`. Lee el archivo en
+ *       `EXPEDIENTES_ROOT/ref` (ruta relativa o URL /files/...; nunca fuera de EXPEDIENTES_ROOT),
+ *       ejecuta la misma extracción OCR que la carga y devuelve la lectura con el SHA-256 del archivo.
+ *       No copia, no mueve ni borra nada.
+ *     parameters:
+ *       - in: header
+ *         name: x-expediente-key
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [ref, tipo]
+ *             properties:
+ *               ref:       { type: string, description: 'Ruta relativa a EXPEDIENTES_ROOT o URL /files/...' }
+ *               tipo:      { type: string, enum: [cedula, cedula_titular, cedula_beneficiario, licencia, certificado, rif, pasaporte, factura] }
+ *               aceptaRif: { type: boolean, description: 'Cédula o RIF en el mismo documento (patrimoniales).' }
+ *     responses:
+ *       200:
+ *         description: '{ ok, ref, hash, ocr: { extraido, confianza (0-1), motivo?, proveedor, falla? } }'
+ *       400: { description: 'Tipo inválido o ref inválido / fuera de EXPEDIENTES_ROOT' }
+ *       401: { description: Clave interna inválida }
+ *       404: { description: El archivo no existe }
+ *       503: { description: EXPEDIENTE_INTERNAL_KEY no configurada }
+ */
+router.post('/analizar', requireInternalKey, express.json({ limit: '16kb' }), async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const tipo = String(body.tipo || '').trim();
+    if (!documentService.VALID_DOC_TYPES.includes(tipoOcrDe(tipo))) {
+      return res.status(400).json({ ok: false, code: 'TIPO_INVALIDO', message: `Tipo inválido: ${tipo || '(vacío)'}` });
+    }
+    const ref = typeof body.ref === 'string' ? body.ref.trim() : '';
+    if (!ref) {
+      return res.status(400).json({ ok: false, code: 'REF_REQUERIDA', message: 'Indique ref (ruta del documento).' });
+    }
+    const abs = expedienteFs.resolveExpedienteRef(ref);
+    if (!abs) {
+      return res.status(400).json({
+        ok: false,
+        code: 'REF_INVALIDA',
+        message: 'La ruta del documento no es válida o queda fuera de los expedientes.',
+      });
+    }
+    const st = await fs.promises.stat(abs).catch(() => null);
+    if (!st || !st.isFile()) {
+      return res.status(404).json({ ok: false, code: 'ARCHIVO_NO_ENCONTRADO', message: 'El documento no existe en el expediente.' });
+    }
+
+    const hash = await hashArchivo(abs);
+    const mimetype = expedienteFs.mimeFromPath(abs);
+    const file = { path: abs, mimetype, size: st.size, originalname: path.basename(abs) };
+    let ocr;
+    const validation = mimetype ? documentService.validateDocument(file, tipoOcrDe(tipo)) : { valid: false };
+    if (!mimetype) {
+      ocr = { extraido: null, confianza: 0, motivo: 'Formato de archivo no soportado por el OCR.', proveedor: null, falla: 'tecnica' };
+    } else if (!validation.valid) {
+      // Archivo vacío o casi vacío: no hay nada que leer (Nexus lo marca ilegible).
+      ocr = { extraido: null, confianza: 0, motivo: validation.message || 'Archivo vacío o dañado.', proveedor: null };
+    } else {
+      ocr = await extraer(file, tipo, { aceptaRif: body.aceptaRif === true || String(body.aceptaRif ?? '') === '1' });
+    }
+    console.log(
+      `[modulo-ocr/expediente-analizar] tipo=${tipo} proveedor=${ocr.proveedor || '-'} confianza=${ocr.confianza} falla=${ocr.falla || '-'}`,
+    );
+    return res.status(200).json({ ok: true, ref, hash, ocr });
+  } catch (err) {
+    // Solo el código: los mensajes de fs traen rutas con la cédula.
+    console.error('[modulo-ocr/expediente-analizar] error:', err?.code || err?.name || 'Error');
+    return res.status(500).json({ ok: false, code: 'EXPEDIENTE_ANALISIS_ERROR', message: 'No se pudo analizar el documento.' });
+  }
+});
+
 module.exports = router;
-module.exports._internal = { empresaCandidates, extraer };
+module.exports._internal = { empresaCandidates, extraer, tipoOcrDe };
