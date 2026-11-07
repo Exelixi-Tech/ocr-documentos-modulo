@@ -294,3 +294,8 @@ router.use((err, _req, res, _next) => {
 });
 
 module.exports = router;
+/**
+ * Misma subida (tipo de archivo, MIME, tamaño) y normalización de imagen que /documents/upload,
+ * reutilizadas por POST /api/internal/expedientes/documento (routes/expedienteDocumento.js).
+ */
+module.exports.uploadPipeline = { upload, normalizeImage, discardUpload };
