@@ -15,6 +15,11 @@
  *     traversal), ejecuta la misma extracción OCR y responde { ok, ref, hash, ocr }.
  *     No copia, no mueve y no borra nada.
  *
+ * POST /api/internal/expedientes/localizar  (JSON: { cnpoliza, cnrecibo?, cedulas: string[] })
+ *   - Conciliación de pólizas registradas sin datos del expediente: busca la carpeta de la póliza
+ *     (número exacto; luego últimos 8 dígitos si es única) o {cédula}/pendiente y responde
+ *     { ok, ubicacion: poliza|pendiente|null, carpeta, documentos: { [clave]: ref } }. Solo lectura.
+ *
  * ocr.falla (opcional): 'tecnica' = no hubo lectura real (Gemini caído, OCR simulado, formato no
  * soportado por el proveedor); 'tipo_documento' = el documento no es del tipo pedido.
  *
@@ -328,6 +333,76 @@ router.post('/analizar', requireInternalKey, express.json({ limit: '16kb' }), as
     // Solo el código: los mensajes de fs traen rutas con la cédula.
     console.error('[modulo-ocr/expediente-analizar] error:', err?.code || err?.name || 'Error');
     return res.status(500).json({ ok: false, code: 'EXPEDIENTE_ANALISIS_ERROR', message: 'No se pudo analizar el documento.' });
+  }
+});
+
+/**
+ * @openapi
+ * /api/internal/expedientes/localizar:
+ *   post:
+ *     tags: [Documentos]
+ *     summary: (Interno) Localiza los documentos que el OCR guardó para una póliza
+ *     description: |
+ *       Servidor a servidor (Nexus → OCR), para la conciliación del monitor de expedientes con
+ *       pólizas registradas sin datos del expediente. Requiere `x-expediente-key`.
+ *       Busca la carpeta de la póliza (`{empresa}/{cédula}/{recibo-aa-mes-póliza}`: número exacto,
+ *       luego últimos 8 dígitos si es única; después número exacto bajo otra cédula si es única)
+ *       y, si no existe, `{empresa}/{cédula}/pendiente`. Solo lectura: no copia, no mueve ni borra.
+ *     parameters:
+ *       - in: header
+ *         name: x-expediente-key
+ *         required: true
+ *         schema: { type: string }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [cnpoliza]
+ *             properties:
+ *               cnpoliza:      { type: string }
+ *               cnrecibo:      { type: string }
+ *               cedulas:       { type: array, items: { type: string } }
+ *               empresaId:     { type: string }
+ *               empresaNombre: { type: string }
+ *     responses:
+ *       200:
+ *         description: '{ ok, ubicacion: poliza|pendiente|null, carpeta, documentos: { [clave]: ref } } (ref relativo a EXPEDIENTES_ROOT)'
+ *       400: { description: Falta cnpoliza }
+ *       401: { description: Clave interna inválida }
+ *       503: { description: EXPEDIENTE_INTERNAL_KEY no configurada }
+ */
+router.post('/localizar', requireInternalKey, express.json({ limit: '16kb' }), (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const escalar = (v) => (typeof v === 'string' || typeof v === 'number' ? v : '');
+    const cnpoliza = String(escalar(body.cnpoliza)).replace(/\D/g, '').slice(0, 30);
+    if (!cnpoliza) {
+      return res.status(400).json({ ok: false, code: 'DATOS_FALTANTES', message: 'Indique cnpoliza.' });
+    }
+    const cedulas = (Array.isArray(body.cedulas) ? body.cedulas : [])
+      .slice(0, 10)
+      .map((c) => expedienteFs.sanitizeCedula(escalar(c)))
+      .filter(Boolean);
+    const r = expedienteFs.localizarExpediente({
+      cnpoliza,
+      cnrecibo: escalar(body.cnrecibo),
+      cedulas,
+      empresas: empresaCandidates(body),
+    });
+    // Sin póliza, cédula ni rutas en el log.
+    console.log(
+      `[modulo-ocr/expediente-localizar] ubicacion=${r.ubicacion || '-'} documentos=${Object.keys(r.documentos).length}`,
+    );
+    return res.status(200).json({ ok: true, ...r });
+  } catch (err) {
+    console.error('[modulo-ocr/expediente-localizar] error:', err?.code || err?.name || 'Error');
+    return res.status(500).json({
+      ok: false,
+      code: 'EXPEDIENTE_LOCALIZAR_ERROR',
+      message: 'No se pudo localizar el expediente.',
+    });
   }
 });
 
