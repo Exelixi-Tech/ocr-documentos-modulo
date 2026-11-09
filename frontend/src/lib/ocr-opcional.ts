@@ -45,9 +45,15 @@ function readLists(config: Record<string, unknown> | null | undefined): { gestor
 
 function readActor(metadataCanal: Record<string, unknown> | null | undefined): { cgestor: string; ccanalalt: string } {
   const meta = metadataCanal ?? {};
+  // SysIP también identifica al actor como centidad + citem: G = punto de comercialización
+  // (citem = cgestor, p. ej. 80080-1196-2597) y C = canal (citem = ccanalalt).
+  const centidad = norm(meta['centidad']).toUpperCase();
+  const citem = norm(meta['citem']);
   return {
-    cgestor: norm(meta['cgestor']) || norm(meta['cgestor_in']),
-    ccanalalt: norm(meta['ccanalalt']) || norm(meta['ccanalalt_in']),
+    cgestor:
+      norm(meta['cgestor']) || norm(meta['cgestor_in']) || (centidad === 'G' ? citem : ''),
+    ccanalalt:
+      norm(meta['ccanalalt']) || norm(meta['ccanalalt_in']) || (centidad === 'C' ? citem : ''),
   };
 }
 
