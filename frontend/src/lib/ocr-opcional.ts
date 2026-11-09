@@ -51,7 +51,11 @@ function readActor(metadataCanal: Record<string, unknown> | null | undefined): {
   const citem = norm(meta['citem']);
   return {
     cgestor:
-      norm(meta['cgestor']) || norm(meta['cgestor_in']) || (centidad === 'G' ? citem : ''),
+      norm(meta['cgestor']) ||
+      norm(meta['cgestor_in']) ||
+      // El SSO de SysIP manda el punto también como csubitem (citem = canal, csubitem = punto).
+      norm(meta['csubitem']) ||
+      (centidad === 'G' ? citem : ''),
     ccanalalt:
       norm(meta['ccanalalt']) || norm(meta['ccanalalt_in']) || (centidad === 'C' ? citem : ''),
   };
