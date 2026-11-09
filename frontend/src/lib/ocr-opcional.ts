@@ -34,22 +34,56 @@ function matchGestor(configurados: string[], runtime: string): boolean {
   return configurados.includes(runtime);
 }
 
+function readLists(config: Record<string, unknown> | null | undefined): { gestores: string[]; canales: string[] } {
+  const oc = config?.ocrOpcional as OcrOpcionalConfig | undefined;
+  if (!oc || typeof oc !== 'object') return { gestores: [], canales: [] };
+  return {
+    gestores: (Array.isArray(oc.gestores) ? oc.gestores : []).map(norm).filter(Boolean),
+    canales: (Array.isArray(oc.canales) ? oc.canales : []).map(norm).filter(Boolean),
+  };
+}
+
+function readActor(metadataCanal: Record<string, unknown> | null | undefined): { cgestor: string; ccanalalt: string } {
+  const meta = metadataCanal ?? {};
+  return {
+    cgestor: norm(meta['cgestor']) || norm(meta['cgestor_in']),
+    ccanalalt: norm(meta['ccanalalt']) || norm(meta['ccanalalt_in']),
+  };
+}
+
+/**
+ * Un punto de comercialización (magestor) que entra por SysIP o emisión directa trae solo su
+ * cgestor. Devuelve ese cgestor cuando hace falta resolver su canal en el catálogo para heredar
+ * el OCR opcional del canal; '' si el actor ya resuelve directo o no hay canales marcados.
+ */
+export function cgestorParaHeredarCanal(
+  config: Record<string, unknown> | null | undefined,
+  metadataCanal: Record<string, unknown> | null | undefined,
+): string {
+  const { canales } = readLists(config);
+  if (canales.length === 0) return '';
+  if (isOcrOpcionalForActor(config, metadataCanal)) return '';
+  return readActor(metadataCanal).cgestor;
+}
+
+/**
+ * @param ccanalaltDelPunto canal del cgestor resuelto por el catálogo (GET /api/catalog/gestor-canal).
+ *   Solo se usa si el actor no está marcado directamente; sin él (o si el catálogo falló) el OCR
+ *   queda obligatorio.
+ */
 export function isOcrOpcionalForActor(
   config: Record<string, unknown> | null | undefined,
   metadataCanal: Record<string, unknown> | null | undefined,
+  ccanalaltDelPunto?: string | number | null,
 ): boolean {
-  const oc = config?.ocrOpcional as OcrOpcionalConfig | undefined;
-  if (!oc || typeof oc !== 'object') return false;
-
-  const gestores = (Array.isArray(oc.gestores) ? oc.gestores : []).map(norm).filter(Boolean);
-  const canales = (Array.isArray(oc.canales) ? oc.canales : []).map(norm).filter(Boolean);
+  const { gestores, canales } = readLists(config);
   if (gestores.length === 0 && canales.length === 0) return false;
 
-  const meta = metadataCanal ?? {};
-  const cgestor = norm(meta['cgestor']) || norm(meta['cgestor_in']);
-  const ccanalalt = norm(meta['ccanalalt']) || norm(meta['ccanalalt_in']);
+  const { cgestor, ccanalalt } = readActor(metadataCanal);
 
   if (cgestor && matchGestor(gestores, cgestor)) return true;
   if (ccanalalt && canales.includes(ccanalalt)) return true;
+  const heredado = norm(ccanalaltDelPunto);
+  if (cgestor && heredado && canales.includes(heredado)) return true;
   return false;
 }
