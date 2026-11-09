@@ -115,6 +115,9 @@ app.use('/api/catalog', catalogRoutes);
 const expedienteInternal = require('./routes/expedienteInternal');
 app.use('/api/documents/commit-expediente', expedienteInternal);
 
+// Monitor de expedientes: carga interna Nexus → OCR (x-expediente-key; sin EXPEDIENTE_INTERNAL_KEY → 503)
+app.use('/api/internal/expedientes', require('./routes/expedienteDocumento'));
+
 // Activación tarjeta RCV (farmacia) — validate-card/bill sin nexus_token
 app.use('/api/tarjeta', tarjetaRoutes);
 
