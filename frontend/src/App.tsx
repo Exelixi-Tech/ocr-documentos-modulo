@@ -243,15 +243,21 @@ export default function App() {
   const { requiredDocs: effectiveRequiredDocs } = resolveEffectiveOcrDocs();
   const ocrOpcionalCanal = useOcrOpcional(product.id);
   const ocrDocsCompletos = effectiveRequiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
-  const canContinueOcr = ocrDocsCompletos || ocrOpcionalCanal;
-  const continueOcrLabel = !ocrDocsCompletos && ocrOpcionalCanal ? 'Continuar sin documentos' : 'Continuar';
+  // Tarjeta pagada en caja: la factura valida la compra; el OCR opcional del canal no la salta.
+  const facturaTarjetaOk =
+    !effectiveRequiredDocs.includes('factura') || isDocOcrDataValid('factura', documents['factura']);
+  const ocrOpcionalAplica = ocrOpcionalCanal && facturaTarjetaOk;
+  const canContinueOcr = ocrDocsCompletos || ocrOpcionalAplica;
+  const continueOcrLabel = !ocrDocsCompletos && ocrOpcionalAplica ? 'Continuar sin documentos' : 'Continuar';
   const pendingDocsHint = effectiveRequiredDocs
     .filter((d) => !isDocOcrDataValid(d, documents[d]))
     .map((d) => DOC_LABELS[d] ?? d)
     .join(', ');
   const ocrPendingHint = !pendingDocsHint
     ? undefined
-    : ocrOpcionalCanal
+    : ocrOpcionalCanal && !facturaTarjetaOk
+      ? 'El escaneo es opcional para tu canal, pero la factura de la tarjeta es obligatoria.'
+      : ocrOpcionalAplica
       ? 'El escaneo es opcional para tu canal: puedes continuar y cargar los datos a mano.'
       : `Falta procesar o verificar: ${pendingDocsHint}`;
 
@@ -259,7 +265,8 @@ export default function App() {
     const { requiredDocs } = resolveEffectiveOcrDocs();
 
     const allValid = requiredDocs.every((d) => isDocOcrDataValid(d, documents[d]));
-    if (!allValid && !ocrOpcionalCanal) {
+    const facturaOk = !requiredDocs.includes('factura') || isDocOcrDataValid('factura', documents['factura']);
+    if (!allValid && !(ocrOpcionalCanal && facturaOk)) {
       const lista = requiredDocs
         .filter((d) => !isDocOcrDataValid(d, documents[d]))
         .map((d) => DOC_LABELS[d] ?? d)
