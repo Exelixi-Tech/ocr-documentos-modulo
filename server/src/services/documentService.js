@@ -147,7 +147,11 @@ async function runOcr(file, docType, tarjetaHints, opts = {}) {
   if (provider === 'gemini') {
     try {
       const gemini = require('./geminiProvider');
-      const result = await gemini.extract(file.path, file.mimetype, docType, { aceptaRif });
+      const result = await gemini.extract(file.path, file.mimetype, docType, {
+        aceptaRif,
+        // Solo el monitor de expedientes la manda (pro primero); emisión usa la cadena por defecto.
+        ...(Array.isArray(opts.modelChain) && opts.modelChain.length ? { modelChain: opts.modelChain } : {}),
+      });
 
       const chainSummary = (result.meta.chainAttempts || [])
         .map(a => `${a.model}(${a.criticalOk ? 'ok' : a.error ? 'err' : 'partial'})`)
@@ -257,6 +261,8 @@ async function runOcr(file, docType, tarjetaHints, opts = {}) {
         fields: {},
         ocrFailed: true,
         error: err.message,
+        // Modelos que se intentaron (auditoría del monitor de expedientes).
+        ...(Array.isArray(err.chainAttempts) ? { meta: { chainAttempts: err.chainAttempts } } : {}),
       };
     }
   }
