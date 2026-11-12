@@ -34,6 +34,17 @@ function cedulaFromOcrFields(fields) {
   );
 }
 
+/** Extensión del archivo temporal según el MIME aceptado por fileFilter. */
+const EXTENSION_POR_MIME = {
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+  'image/heic': '.heic',
+  'image/heif': '.heif',
+  'application/pdf': '.pdf',
+};
+
 // Temporal: multer deja el archivo en _tmp; luego placePending lo mueve al expediente.
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
@@ -41,7 +52,9 @@ const storage = multer.diskStorage({
     require('fs').mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
-  filename: (_req, file, cb) => cb(null, `${uuidv4()}${path.extname(file.originalname)}`),
+  // Extensión según el MIME permitido (fileFilter), nunca la del nombre del cliente: un
+  // «cedula.html» no puede quedar guardado (ni servido por /files) como HTML.
+  filename: (_req, file, cb) => cb(null, `${uuidv4()}${EXTENSION_POR_MIME[file.mimetype] || '.bin'}`),
 });
 
 const fileFilter = (_req, file, cb) => {
