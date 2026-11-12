@@ -19,6 +19,12 @@
  *                    gemini-3.8-flash no lee bien el carnet INTT: sin placa o placa/VIN
  *                    inventados, sin modelo ni color — prueba en el 121 el 27-oct.)
  *   GEMINI_MAX_RETRIES Opcional. Reintentos por modelo. Default: 2.
+ *   GEMINI_MODELS_EXPEDIENTES Opcional. Cadena CSV PROPIA del monitor de expedientes
+ *                    (/api/internal/expedientes/documento y /analizar: validación con IA
+ *                    contra la póliza). Default: "gemini-3.1-pro-preview,gemini-3.6-flash"
+ *                    (pro primero, flash de respaldo). No toca el escaneo de emisión, que
+ *                    sigue con GEMINI_MODEL / GEMINI_MODELS. Los 2.5 (retirados) y
+ *                    gemini-3.8-flash se descartan de esta cadena.
  */
 
 const fs = require('fs/promises');
@@ -40,6 +46,38 @@ const SUPPORTED_MIME = new Set([
   'image/webp',
   'application/pdf',
 ]);
+
+/** Monitor de expedientes: pro primero (el más preciso), flash de respaldo. */
+const DEFAULT_EXPEDIENTES_CHAIN = [
+  'gemini-3.1-pro-preview',
+  'gemini-3.6-flash',
+];
+
+/** Retirados por Google (404) o que leen mal el carnet INTT: nunca en la cadena de expedientes. */
+function modeloDescartadoExpedientes(m) {
+  return /^gemini-2\.5-/i.test(m) || /^gemini-3\.8-flash/i.test(m);
+}
+
+/**
+ * Cadena del monitor de expedientes (validación con IA contra la póliza). GEMINI_MODELS_EXPEDIENTES
+ * la reemplaza; sin variable (o si todo lo configurado está descartado) va el default pro → flash.
+ * Independiente de GEMINI_MODEL / GEMINI_MODELS (escaneo de emisión).
+ */
+function getExpedientesModelChain() {
+  const pedidos = String(process.env.GEMINI_MODELS_EXPEDIENTES || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  const chain = [];
+  for (const m of pedidos) {
+    if (modeloDescartadoExpedientes(m)) {
+      console.warn(`[OCR] GEMINI_MODELS_EXPEDIENTES: se ignora ${m} (retirado o no apto)`);
+      continue;
+    }
+    if (!chain.includes(m)) chain.push(m);
+  }
+  return chain.length ? chain : [...DEFAULT_EXPEDIENTES_CHAIN];
+}
 
 let cachedClient = null;
 
@@ -1242,7 +1280,10 @@ async function extract(filePath, mimetype, docType, opts = {}) {
   const buffer = await fs.readFile(filePath);
   const base64 = buffer.toString('base64');
 
-  const chain = getModelChain();
+  // opts.modelChain: cadena propia del llamador (monitor de expedientes); si no, la de emisión.
+  const chain = Array.isArray(opts.modelChain) && opts.modelChain.length
+    ? opts.modelChain
+    : getModelChain();
   const overallStart = Date.now();
   const attemptsLog = [];
   let lastErr;
@@ -1345,6 +1386,8 @@ module.exports = {
   extract,
   SUPPORTED_MIME,
   getModelChain,
+  getExpedientesModelChain,
+  DEFAULT_EXPEDIENTES_CHAIN,
   /** Solo para tests. */
   _internal: { normalizeCedulaFields, validateCriticalFields },
 };

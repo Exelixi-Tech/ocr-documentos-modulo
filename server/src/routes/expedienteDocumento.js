@@ -31,6 +31,7 @@ const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
 const documentService = require('../services/documentService');
+const gemini = require('../services/geminiProvider');
 const expedienteFs = require('../lib/expedienteFs');
 const { uploadPipeline } = require('./ocr');
 
@@ -119,7 +120,31 @@ function pendienteDir(empresas, cedula) {
 }
 
 /**
+ * Auditoría: qué modelo de Gemini leyó (modelo) y qué se intentó en la cadena (modelos).
+ * Solo con lectura real de Gemini (meta.model) o con la cadena agotada (ocrFailed + intentos).
+ */
+function auditoriaModelo(r) {
+  const meta = r && typeof r.meta === 'object' && r.meta ? r.meta : null;
+  if (!meta) return {};
+  const intentos = Array.isArray(meta.chainAttempts) ? meta.chainAttempts : [];
+  const conModelo = typeof meta.model === 'string' && meta.model;
+  if (!conModelo && !(r.ocrFailed && intentos.length)) return {};
+  const out = {};
+  if (conModelo) out.modelo = meta.model;
+  const modelos = intentos
+    .filter((a) => a && typeof a.model === 'string')
+    .map((a) => ({
+      modelo: a.model,
+      resultado: a.error ? 'error' : a.criticalOk === false ? 'parcial' : 'ok',
+    }));
+  if (modelos.length) out.modelos = modelos;
+  return out;
+}
+
+/**
  * Extracción OCR existente (documentService.runOcr) resumida para Nexus.
+ * Monitor de expedientes: cadena de modelos PROPIA (GEMINI_MODELS_EXPEDIENTES; default
+ * gemini-3.1-pro-preview → gemini-3.6-flash). El escaneo de emisión no cambia.
  * confianza: 1 = Gemini leyó los campos críticos y el tipo coincide;
  *            0.5 = lectura parcial (faltan campos críticos o tipo dudoso aceptado);
  *            0 = sin lectura útil (tipo no coincide, OCR caído u OCR simulado).
@@ -128,8 +153,12 @@ function pendienteDir(empresas, cedula) {
  */
 async function extraer(file, tipo, opts) {
   try {
-    const r = await documentService.runOcr(file, tipoOcrDe(tipo), null, opts);
+    const r = await documentService.runOcr(file, tipoOcrDe(tipo), null, {
+      ...opts,
+      modelChain: gemini.getExpedientesModelChain(),
+    });
     const proveedor = r?.provider || null;
+    const audit = auditoriaModelo(r);
     const rechazo = r?.mismatch || r?.planMismatch || r?.facturaInvalida;
     if (rechazo) {
       return {
@@ -138,10 +167,11 @@ async function extraer(file, tipo, opts) {
         motivo: rechazo.message || 'El documento no coincide con el tipo.',
         proveedor,
         falla: 'tipo_documento',
+        ...audit,
       };
     }
     if (r?.ocrFailed) {
-      return { extraido: null, confianza: 0, motivo: 'No se pudo leer el documento (OCR no disponible).', proveedor, falla: 'tecnica' };
+      return { extraido: null, confianza: 0, motivo: 'No se pudo leer el documento (OCR no disponible).', proveedor, falla: 'tecnica', ...audit };
     }
     if (proveedor !== 'gemini') {
       return { extraido: null, confianza: 0, motivo: 'OCR simulado: sin lectura real.', proveedor, falla: 'tecnica' };
@@ -149,7 +179,7 @@ async function extraer(file, tipo, opts) {
     const attempts = Array.isArray(r.meta?.chainAttempts) ? r.meta.chainAttempts : [];
     const last = attempts[attempts.length - 1];
     const confianza = last && last.criticalOk === false ? 0.5 : 1;
-    return { extraido: r.fields || null, confianza, proveedor };
+    return { extraido: r.fields || null, confianza, proveedor, ...audit };
   } catch {
     return { extraido: null, confianza: 0, motivo: 'Error al leer el documento.', proveedor: null, falla: 'tecnica' };
   }
@@ -241,7 +271,7 @@ router.post('/documento', requireInternalKey, receiveFile, async (req, res) => {
     });
     const hash = await hashArchivo(placed.absPath).catch(() => null);
     console.log(
-      `[modulo-ocr/expediente-documento] tipo=${tipo} ubicacion=${ubicacion} proveedor=${ocr.proveedor || '-'} confianza=${ocr.confianza}`,
+      `[modulo-ocr/expediente-documento] tipo=${tipo} ubicacion=${ubicacion} proveedor=${ocr.proveedor || '-'} modelo=${ocr.modelo || '-'} confianza=${ocr.confianza} falla=${ocr.falla || '-'}`,
     );
     return res.status(200).json({ ok: true, ref, hash, ubicacion, ocr });
   } catch (err) {
@@ -282,7 +312,7 @@ router.post('/documento', requireInternalKey, receiveFile, async (req, res) => {
  *               aceptaRif: { type: boolean, description: 'Cédula o RIF en el mismo documento (patrimoniales).' }
  *     responses:
  *       200:
- *         description: '{ ok, ref, hash, ocr: { extraido, confianza (0-1), motivo?, proveedor, falla? } }'
+ *         description: '{ ok, ref, hash, ocr: { extraido, confianza (0-1), motivo?, proveedor, falla?, modelo?, modelos? } }'
  *       400: { description: 'Tipo inválido o ref inválido / fuera de EXPEDIENTES_ROOT' }
  *       401: { description: Clave interna inválida }
  *       404: { description: El archivo no existe }
@@ -326,7 +356,7 @@ router.post('/analizar', requireInternalKey, express.json({ limit: '16kb' }), as
       ocr = await extraer(file, tipo, { aceptaRif: body.aceptaRif === true || String(body.aceptaRif ?? '') === '1' });
     }
     console.log(
-      `[modulo-ocr/expediente-analizar] tipo=${tipo} proveedor=${ocr.proveedor || '-'} confianza=${ocr.confianza} falla=${ocr.falla || '-'}`,
+      `[modulo-ocr/expediente-analizar] tipo=${tipo} proveedor=${ocr.proveedor || '-'} modelo=${ocr.modelo || '-'} confianza=${ocr.confianza} falla=${ocr.falla || '-'}`,
     );
     return res.status(200).json({ ok: true, ref, hash, ocr });
   } catch (err) {
@@ -407,4 +437,4 @@ router.post('/localizar', requireInternalKey, express.json({ limit: '16kb' }), (
 });
 
 module.exports = router;
-module.exports._internal = { empresaCandidates, extraer, tipoOcrDe };
+module.exports._internal = { auditoriaModelo, empresaCandidates, extraer, tipoOcrDe };

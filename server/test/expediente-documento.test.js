@@ -178,3 +178,13 @@ test('OCR simulado (mock) nunca devuelve datos para validar', async () => {
   assert.equal(r.body.ocr.extraido, null);
   assert.equal(r.body.ocr.confianza, 0);
 });
+
+test('nombre con extensión peligrosa (.html): se guarda con la extensión del MIME aceptado', async (t) => {
+  process.env.EXPEDIENTE_INTERNAL_KEY = KEY;
+  t.mock.method(documentService, 'runOcr', async () => ({ provider: 'gemini', fields: {}, ocrFailed: true }));
+  const r = await post(form({ ...campos, documento: '44444444' }, { buf: pdf(), type: 'application/pdf', name: 'cedula.html' }));
+  assert.equal(r.status, 200);
+  assert.match(r.body.ref, /\/cedula\.pdf$/);
+  assert.ok(!fs.readdirSync(path.join(ROOT, EMPRESA, '44444444', 'pendiente')).some((f) => /\.html?$/i.test(f)));
+  assert.ok(tmpVacio());
+});
