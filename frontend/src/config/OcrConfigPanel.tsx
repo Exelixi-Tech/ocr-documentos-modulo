@@ -52,6 +52,10 @@ interface GestorActor {
 interface OcrOpcionalState {
   gestores: string[];
   canales: string[];
+  /** cproductor con OCR opcional (se agregan por código; no hay catálogo). */
+  productores: string[];
+  /** cproductor → nombre para mostrar (solo informativo; el OCR compara códigos). */
+  productoresNombres: Record<string, string>;
 }
 
 type ActoresLoad = 'idle' | 'loading' | 'ready' | 'error';
@@ -87,7 +91,9 @@ export function OcrConfigPanel() {
   const [editingDocTemplate, setEditingDocTemplate] = useState<string | null>(null);
   const [uiPerProductor, setUiPerProductor] = useState<Record<string, Record<string, boolean>>>({});
   const [newProductorKey, setNewProductorKey] = useState('');
-  const [ocrOpcional, setOcrOpcional] = useState<OcrOpcionalState>({ gestores: [], canales: [] });
+  const [ocrOpcional, setOcrOpcional] = useState<OcrOpcionalState>({ gestores: [], canales: [], productores: [], productoresNombres: {} });
+  const [newOcrProductor, setNewOcrProductor] = useState('');
+  const [newOcrProductorNombre, setNewOcrProductorNombre] = useState('');
   const [actores, setActores] = useState<{ canales: CanalActor[]; gestores: GestorActor[] }>({ canales: [], gestores: [] });
   const [actoresLoad, setActoresLoad] = useState<ActoresLoad>('idle');
   const [actoresError, setActoresError] = useState('');
@@ -127,6 +133,29 @@ export function OcrConfigPanel() {
     setSaved(false);
   }, []);
 
+  const addOcrProductor = useCallback(() => {
+    const code = newOcrProductor.trim();
+    if (!code) return;
+    const nombre = newOcrProductorNombre.trim();
+    setOcrOpcional(prev => ({
+      ...prev,
+      productores: prev.productores.includes(code) ? prev.productores : [...prev.productores, code],
+      productoresNombres: nombre ? { ...prev.productoresNombres, [code]: nombre } : prev.productoresNombres,
+    }));
+    setNewOcrProductor('');
+    setNewOcrProductorNombre('');
+    setSaved(false);
+  }, [newOcrProductor, newOcrProductorNombre]);
+
+  const removeOcrProductor = useCallback((code: string) => {
+    setOcrOpcional(prev => {
+      const nombres = { ...prev.productoresNombres };
+      delete nombres[code];
+      return { ...prev, productores: prev.productores.filter(c => c !== code), productoresNombres: nombres };
+    });
+    setSaved(false);
+  }, []);
+
   const UI_FLAG_LABELS = [
     { key: 'hideHeader',      label: 'Ocultar cabecera (logo / marca)' },
     { key: 'hideStepper',     label: 'Ocultar barra de pasos' },
@@ -159,6 +188,12 @@ export function OcrConfigPanel() {
     setOcrOpcional({
       gestores: Array.isArray(oc?.gestores) ? oc!.gestores!.map(String) : [],
       canales: Array.isArray(oc?.canales) ? oc!.canales!.map(String) : [],
+      // Configs anteriores no traen productores: ausente = ninguno.
+      productores: Array.isArray(oc?.productores) ? oc!.productores!.map(c => String(c).trim()).filter(Boolean) : [],
+      productoresNombres:
+        oc?.productoresNombres && typeof oc.productoresNombres === 'object' && !Array.isArray(oc.productoresNombres)
+          ? Object.fromEntries(Object.entries(oc.productoresNombres).map(([k, v]) => [k, String(v)]))
+          : {},
     });
   }, [config]);
 
@@ -450,12 +485,70 @@ export function OcrConfigPanel() {
                 {tab === 'canales' && (
                   <div className="space-y-5">
                     <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 text-sm text-indigo-700">
-                      <p className="font-bold mb-1 flex items-center gap-1.5"><ScanLine size={14} /> OCR obligatorio u opcional por canal / gestor</p>
+                      <p className="font-bold mb-1 flex items-center gap-1.5"><ScanLine size={14} /> OCR obligatorio u opcional por canal / gestor / productor</p>
                       <p className="text-xs text-indigo-500">
                         Con el toggle <strong>activado</strong> el canal o gestor exige escanear los documentos (comportamiento actual).
                         Al <strong>desactivarlo</strong>, sus usuarios ven el paso OCR pero pueden <strong>continuar sin documentos</strong> y
                         cargar los datos a mano en el formulario. Todo actor nuevo entra como obligatorio.
                       </p>
+                    </div>
+
+                    {/* Productores: se agregan por código (no dependen del catálogo de canales). */}
+                    <div>
+                      <div className="flex items-center justify-between mb-3 mt-2">
+                        <p className="text-xs font-black text-slate-500 uppercase tracking-widest">Productores</p>
+                        <span className="text-[11px] font-semibold text-slate-400">
+                          {ocrOpcional.productores.length > 0
+                            ? `${ocrOpcional.productores.length} con OCR opcional`
+                            : 'Todos obligatorios'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        <input
+                          className="w-40 text-sm border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 bg-white font-mono"
+                          placeholder="cproductor"
+                          maxLength={32}
+                          value={newOcrProductor}
+                          onChange={e => setNewOcrProductor(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addOcrProductor(); }}
+                        />
+                        <input
+                          className="flex-1 min-w-[180px] text-sm border border-slate-200 rounded-xl px-3 py-2.5 outline-none focus:border-indigo-400 bg-white"
+                          placeholder="Nombre del productor (opcional)"
+                          maxLength={120}
+                          value={newOcrProductorNombre}
+                          onChange={e => setNewOcrProductorNombre(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') addOcrProductor(); }}
+                        />
+                        <button
+                          onClick={addOcrProductor}
+                          disabled={!newOcrProductor.trim()}
+                          className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors disabled:opacity-40"
+                        >
+                          Marcar OCR opcional
+                        </button>
+                      </div>
+                      {ocrOpcional.productores.length === 0 ? (
+                        <div className="text-center py-6 text-slate-400 text-sm rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50">
+                          Ningún productor con OCR opcional. Agrega su código para permitirle continuar sin documentos.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {ocrOpcional.productores.map(code => (
+                            <div key={code} className="rounded-2xl border border-indigo-200 bg-indigo-50/40 p-3.5 flex items-center gap-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-slate-800 text-sm truncate">{ocrOpcional.productoresNombres[code] || `Productor ${code}`}</p>
+                                <p className="text-xs text-slate-500 font-mono">cproductor {code}</p>
+                              </div>
+                              <span className="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold shrink-0">OCR opcional</span>
+                              <div className="flex flex-col items-center gap-1 shrink-0">
+                                <span className="text-[9px] font-bold text-slate-500 uppercase">Obligatorio</span>
+                                <Toggle on={false} onChange={v => { if (v) removeOcrProductor(code); }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {actoresLoad === 'loading' && (
