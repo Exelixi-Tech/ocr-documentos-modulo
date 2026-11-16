@@ -35,7 +35,9 @@ function decodeTokenMetadata(token: string): Record<string, unknown> | null {
   try {
     const payloadBase64 = token.split('.')[1];
     if (!payloadBase64) return null;
-    const payloadStr = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+    // atob devuelve bytes: se decodifican como UTF-8 para que «Póliza» no salga «PÃ³liza».
+    const bin = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+    const payloadStr = new TextDecoder('utf-8').decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
     const payload = JSON.parse(payloadStr) as { metadata?: unknown };
     const meta = payload?.metadata;
     return meta && typeof meta === 'object' && !Array.isArray(meta)
