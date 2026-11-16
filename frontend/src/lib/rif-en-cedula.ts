@@ -1,5 +1,6 @@
 import { getProductId } from './product';
 import { readStoredBuilderProduct } from './builder-catalog';
+import { readSsoProductInfo } from './sso-metadata';
 
 /**
  * Productos donde el slot de cédula acepta también RIF de empresa (persona jurídica).
@@ -45,9 +46,20 @@ export function aceptaRifEnCedula(): boolean {
   return false;
 }
 
+/**
+ * Beneficiario jurídico (J/G/C, parentesco «Socio») en personas salvo funerario (cproducto 57),
+ * igual que la lista «Beneficiarios» del Formulario: p. ej. Vida con una empresa al 100 %.
+ */
+function beneficiarioJuridicoPermitido(): boolean {
+  const { cproducto, xproducto } = readSsoProductInfo();
+  return cproducto !== '57' && !/funer/i.test(xproducto);
+}
+
 /** Slots de persona natural en personas: el RIF solo vale si es V/E (no empresa). */
 export function rifSoloNaturalEnSlot(docType: string): boolean {
-  return String(getProductId()) === 'funerario' && docType !== 'cedula';
+  if (String(getProductId()) !== 'funerario' || docType === 'cedula') return false;
+  if (docType === 'cedula_beneficiario' && beneficiarioJuridicoPermitido()) return false;
+  return true;
 }
 
 /** "Cédula del tomador" → "Cédula o RIF del tomador". */
