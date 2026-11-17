@@ -35,7 +35,8 @@ export const PRODUCTS: Record<ProductId, ProductConfig> = {
     label: 'RCV',
     fullLabel: 'Suscripción RCV',
     cramo: 18,
-    docs: { required: ['cedula', 'licencia', 'certificado'], optional: ['rif'] },
+    // Licencia de conducir opcional en RCV (pedido 17-nov-2026): obligatorias cédula y certificado.
+    docs: { required: ['cedula', 'certificado'], optional: ['licencia', 'rif'] },
     hasVehicle: true,
   },
   funerario: {

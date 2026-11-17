@@ -197,10 +197,9 @@ export function clasificarPostQuote(params: {
   return { itipoDiligencia: 'C', primaAnualBs, umbralBs, tcBcv };
 }
 
-/** Documentos originales RCV al OCR: cédula + licencia + certificado. */
+/** Documentos obligatorios RCV al OCR: cédula + certificado (licencia opcional desde 17-nov-2026). */
 export const RCV_OCR_ENTRY_REQUIRED: DiligenciaDocType[] = [
   'cedula',
-  'licencia',
   'certificado',
 ];
 
