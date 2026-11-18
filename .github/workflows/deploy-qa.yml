@@ -1,0 +1,56 @@
+name: Deploy QA
+
+# Despliega el servidor OCR en el runner self-hosted de QA cuando se fusiona algo en `qa`.
+# Requiere en Settings > Secrets and variables > Actions > Variables:
+#   OCR_DEPLOY_DIR  ruta del módulo en el servidor (donde está ecosystem.config.js), p. ej. /home/<usuario>/exelixi/ocr-documentos-modulo
+#   OCR_PORT        (opcional) puerto del servidor OCR en QA; por defecto 4001
+# El runner debe tener la etiqueta `srv001qa`, Node 20+, git y pm2, y correr con el usuario que ejecuta PM2.
+
+on:
+  push:
+    branches: [qa]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-qa
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, srv001qa]
+    timeout-minutes: 10
+    env:
+      DEPLOY_DIR: ${{ vars.OCR_DEPLOY_DIR }}
+      OCR_PORT: ${{ vars.OCR_PORT || '4001' }}
+    steps:
+      - name: Validar configuración
+        run: |
+          if [ -z "$DEPLOY_DIR" ]; then echo "::error::Falta la variable OCR_DEPLOY_DIR del repositorio."; exit 1; fi
+          if [ ! -d "$DEPLOY_DIR/.git" ]; then echo "::error::$DEPLOY_DIR no es un clon del repositorio."; exit 1; fi
+
+      - name: Actualizar código (solo fast-forward, sin tocar cambios locales)
+        run: |
+          cd "$DEPLOY_DIR"
+          git fetch origin qa
+          git checkout qa
+          git merge --ff-only origin/qa
+          git log --oneline -1
+
+      - name: Instalar dependencias del servidor
+        run: npm ci --omit=dev --prefix "$DEPLOY_DIR/server"
+
+      - name: Reiniciar ocr-api
+        run: |
+          cd "$DEPLOY_DIR"
+          pm2 restart ocr-api --update-env
+          pm2 save
+
+      - name: Verificar que responde
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS "http://127.0.0.1:${OCR_PORT}/api/health" >/dev/null; then echo "ocr-api responde en :${OCR_PORT}"; exit 0; fi
+            sleep 3
+          done
+          echo "::error::ocr-api no respondió en /api/health tras el reinicio."
+          pm2 logs ocr-api --lines 40 --nostream || true
+          exit 1
