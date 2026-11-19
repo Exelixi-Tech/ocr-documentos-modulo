@@ -1,14 +1,14 @@
 name: Deploy QA
 
-# Despliega el servidor OCR en el runner self-hosted de QA cuando se fusiona algo en `qa`.
+# Despliega el servidor OCR en el runner self-hosted de QA. Por ahora SOLO SE EJECUTA A MANO (Actions > Deploy QA > Run workflow):
+# el runner `srv001qa` aún no existe y un disparo por push dejaría un job en cola sin fin. Cuando el runner esté
+# registrado, restaurar en `on:` el bloque `push: branches: [qa]` para desplegar al fusionar en `qa`.
 # Requiere en Settings > Secrets and variables > Actions > Variables:
 #   OCR_DEPLOY_DIR  ruta del módulo en el servidor (donde está ecosystem.config.js), p. ej. /home/<usuario>/exelixi/ocr-documentos-modulo
 #   OCR_PORT        (opcional) puerto del servidor OCR en QA; por defecto 4001
 # El runner debe tener la etiqueta `srv001qa`, Node 20+, git y pm2, y correr con el usuario que ejecuta PM2.
 
 on:
-  push:
-    branches: [qa]
   workflow_dispatch:
 
 concurrency:
