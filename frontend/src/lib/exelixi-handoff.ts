@@ -4,6 +4,7 @@ import type { DiligenciaState } from './diligencia';
 import { persistBuilderProduct, useBuilderCatalog } from './builder-catalog';
 import { getProductId } from './product';
 import { shouldUseTarjetaPublicApi } from '../features/activacion-tarjeta/flow';
+import { esMarcaNeutra } from './marca';
 
 export const EXELIXI_OCR_HANDOFF_KEY = 'exelixi_ocr_handoff';
 
@@ -208,6 +209,8 @@ export function getFormularioContinueUrl(): string {
       params.set('product', 'rcv');
     }
   }
+
+  if (esMarcaNeutra()) params.set('marca', 'neutra');
 
   return `${base}/?${params.toString()}`;
 }

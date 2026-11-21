@@ -2,6 +2,7 @@ import { useWizardStore } from '../store/wizardStore';
 
 import { getProductConfig } from '../lib/product';
 import { publicAsset } from '../lib/app-base';
+import { esMarcaNeutra, MARCA_NEUTRA_WORDMARK } from '../lib/marca';
 
 const TOTAL_STEPS = 5;
 
@@ -27,6 +28,11 @@ export function TopProgressBar() {
       <div className="bg-white/90 backdrop-blur-xl border-b border-slate-200/70 shadow-[0_4px_18px_-4px_rgba(15,23,42,0.06)]">
         {/* Mobile-only mini brand row */}
         <div className="lg:hidden flex items-center justify-between gap-3 px-4 sm:px-6 pt-2.5 pb-1.5">
+          {esMarcaNeutra() ? (
+            <p className="font-display font-black tracking-tight text-indigo-700 text-[0.95rem] leading-none truncate min-w-0">
+              {MARCA_NEUTRA_WORDMARK}
+            </p>
+          ) : (
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative w-7 h-7 rounded-lg bg-white grid place-items-center shadow-[0_4px_12px_rgba(15,26,90,0.32)] ring-1 ring-slate-200 flex-shrink-0 overflow-hidden">
               <img
@@ -46,6 +52,7 @@ export function TopProgressBar() {
               </p>
             </div>
           </div>
+          )}
 
           <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-[0.6rem] text-slate-500 font-bold">

@@ -9,6 +9,7 @@ import { OcrStep } from './features/ocr/OcrStep';
 import { getProductConfig, persistProductFromHints } from './lib/product';
 import { toast } from './store/toastStore';
 import { publicAsset } from './lib/app-base';
+import { esMarcaNeutra, MARCA_NEUTRA_WORDMARK } from './lib/marca';
 import { ChevronRight, Sparkles, ShieldCheck, CheckCircle2, ScanLine, Lock } from 'lucide-react';
 import { useEffect } from 'react';
 import { applyMetadataFromNexusToken } from './lib/nexus-token-client';
@@ -102,6 +103,7 @@ export default function App() {
   const builderCatalogMode = useBuilderCatalog();
   const { hideHeader, hideStepper, hideTrustBanner, hideFooterBar } = useUiFlags(config);
   const showCatalogPicker = builderCatalogMode && !builderProduct;
+  const marcaNeutra = esMarcaNeutra();
 
   useEffect(() => {
     if (isTarjetaRcvEntry()) markTarjetaPublicSession();
@@ -381,18 +383,26 @@ export default function App() {
           <div className="glass-light border-b border-white/50">
             <div className="max-w-5xl mx-auto px-10 h-16 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white grid place-items-center ring-1 ring-slate-200/70 shadow-[0_6px_18px_-8px_rgba(15,26,90,0.35)]">
-                  <img
-                    src={publicAsset('logo-isotipo-transparente.png')}
-                    alt="La Mundial de Seguros"
-                    className="w-6 h-auto"
-                    draggable={false}
-                  />
-                </div>
+                {!marcaNeutra && (
+                  <div className="w-10 h-10 rounded-xl bg-white grid place-items-center ring-1 ring-slate-200/70 shadow-[0_6px_18px_-8px_rgba(15,26,90,0.35)]">
+                    <img
+                      src={publicAsset('logo-isotipo-transparente.png')}
+                      alt="La Mundial de Seguros"
+                      className="w-6 h-auto"
+                      draggable={false}
+                    />
+                  </div>
+                )}
                 <div className="leading-tight">
-                  <p className="font-wordmark text-lg text-[#091133]">
-                    La Mundial <span className="text-fuchsia-500 italic">de Seguros</span>
-                  </p>
+                  {marcaNeutra ? (
+                    <p className="font-display text-lg font-black tracking-tight text-[#091133]">
+                      {MARCA_NEUTRA_WORDMARK}
+                    </p>
+                  ) : (
+                    <p className="font-wordmark text-lg text-[#091133]">
+                      La Mundial <span className="text-fuchsia-500 italic">de Seguros</span>
+                    </p>
+                  )}
                   <p className="text-[0.6rem] font-bold tracking-[0.2em] uppercase text-slate-400">
                     Suscripción digital
                   </p>

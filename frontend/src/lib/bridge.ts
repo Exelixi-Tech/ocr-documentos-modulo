@@ -26,6 +26,7 @@ import {
 import { canNavigateToStep, getDefaultRequiredDocs } from './wizard-navigation';
 import { getRenovarParam, marcarRenovacionError, renovacionPendiente } from './renovacion-entrada';
 import { getProductConfig } from './product';
+import { conMarcaNeutra } from './marca';
 import { applyWizardStepFromUrl, defaultStepForModule, stepToModuleOrder } from './wizard-step';
 import {
   enrichBridgePayloadForSave,
@@ -322,10 +323,10 @@ function makeBridge(): BridgeAPI {
       if (out?.nextUrl && redirectParams) {
         const next = new URL(out.nextUrl, window.location.href);
         for (const [k, v] of Object.entries(redirectParams)) next.searchParams.set(k, v);
-        window.location.href = next.toString();
+        window.location.href = conMarcaNeutra(next.toString());
       } else if (out?.nextUrl) {
         // Pequeño delay para mostrar el toast de éxito antes de saltar
-        setTimeout(() => { window.location.href = out.nextUrl as string; }, 900);
+        setTimeout(() => { window.location.href = conMarcaNeutra(out.nextUrl as string); }, 900);
       }
       return out ?? { finished: true };
     } catch (e) {
@@ -378,7 +379,7 @@ function makeBridge(): BridgeAPI {
       if (r?.data?.url) {
         const url = new URL(r.data.url);
         url.searchParams.set('wizardStep', String(targetStep));
-        window.location.href = url.toString();
+        window.location.href = conMarcaNeutra(url.toString());
         return true;
       }
     } catch (e) {

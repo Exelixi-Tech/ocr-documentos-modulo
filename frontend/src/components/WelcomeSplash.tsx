@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from 'react';
 import { ShieldCheck, Sparkles } from 'lucide-react';
 import { publicAsset } from '../lib/app-base';
+import { esMarcaNeutra, MARCA_NEUTRA_WORDMARK } from '../lib/marca';
 
 const VISIBLE_MS = 2600;
 const FADE_MS = 700;
@@ -57,6 +58,8 @@ export function WelcomeSplash() {
 
   if (!show) return null;
 
+  const marcaNeutra = esMarcaNeutra();
+
   const skip = () => {
     setLeaving(true);
     window.setTimeout(() => setShow(false), FADE_MS);
@@ -65,7 +68,7 @@ export function WelcomeSplash() {
   return (
     <div
       role="dialog"
-      aria-label="Bienvenida La Mundial de Seguros"
+      aria-label={marcaNeutra ? 'Bienvenida' : 'Bienvenida La Mundial de Seguros'}
       className="fixed inset-0 z-[10000] grid place-items-center overflow-hidden"
       style={{
         animation: leaving ? `splashFadeOut ${FADE_MS}ms ease-out forwards` : undefined,
@@ -200,7 +203,18 @@ export function WelcomeSplash() {
             }}
           />
 
-          {/* Isotipo */}
+          {/* Isotipo (en marca neutra: wordmark tipográfico) */}
+          {marcaNeutra ? (
+            <span
+              className="relative font-display text-2xl sm:text-3xl font-black tracking-tight select-none"
+              style={{
+                color: BRAND.navy,
+                animation: 'splashLogoIn 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s both',
+              }}
+            >
+              {MARCA_NEUTRA_WORDMARK}
+            </span>
+          ) : (
           <img
             src={publicAsset('logo-isotipo-transparente.png')}
             alt="La Mundial de Seguros"
@@ -211,6 +225,7 @@ export function WelcomeSplash() {
               filter: `drop-shadow(0 12px 26px ${BRAND.navyDeep}88)`,
             }}
           />
+          )}
 
           {/* Barrido de brillo */}
           <span aria-hidden className="absolute inset-7 rounded-full overflow-hidden pointer-events-none">
@@ -234,8 +249,14 @@ export function WelcomeSplash() {
             className="font-wordmark text-3xl sm:text-[2.6rem] leading-tight text-white"
             style={{ animation: 'splashTextIn 0.6s ease-out 0.78s both' }}
           >
-            La Mundial{' '}
-            <span style={{ color: BRAND.redLight, fontStyle: 'italic' }}>de Seguros</span>
+            {marcaNeutra ? (
+              MARCA_NEUTRA_WORDMARK
+            ) : (
+              <>
+                La Mundial{' '}
+                <span style={{ color: BRAND.redLight, fontStyle: 'italic' }}>de Seguros</span>
+              </>
+            )}
           </h1>
 
           <p
@@ -279,10 +300,12 @@ export function WelcomeSplash() {
           className="mt-7 flex items-center justify-center gap-2.5 flex-wrap"
           style={{ animation: 'splashTextIn 0.6s ease-out 1.3s both' }}
         >
+          {!marcaNeutra && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 ring-1 ring-white/15 text-[0.66rem] font-bold text-white backdrop-blur-md">
             <Sparkles size={12} style={{ color: BRAND.redLight }} />
             Un mundo de innovación a tu alcance
           </span>
+          )}
           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 ring-1 ring-white/15 text-[0.66rem] font-bold text-white backdrop-blur-md">
             <ShieldCheck size={12} className="text-emerald-300" />
             Cifrado TLS 1.3
