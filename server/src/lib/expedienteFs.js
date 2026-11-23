@@ -145,7 +145,10 @@ async function placePending(srcPath, opts) {
     ? expedienteDir(empresaNombre, cedula, 'pendiente')
     : expedienteDir(empresaNombre, '', '_inbox');
   ensureDirSync(destDir);
-  const destName = cedula ? `${base}${ext}` : `${base}-${path.basename(srcPath, ext)}${ext}`;
+  // pendiente/ es compartida por todas las emisiones de esa cédula/RIF (p. ej. una empresa tomadora con
+  // muchos empleados): NUNCA sobrescribir. Si el nombre está ocupado, se guarda con sufijo único.
+  if (cedula) return placeNoOverwrite(srcPath, destDir, docType);
+  const destName = `${base}-${path.basename(srcPath, ext)}${ext}`;
   const dest = path.join(destDir, destName);
   if (path.resolve(srcPath) !== path.resolve(dest)) {
     await fsp.rename(srcPath, dest).catch(async () => {
@@ -203,23 +206,10 @@ async function commitExpediente(payload) {
     saved.push(path.basename(dest));
   }
 
+  // Solo se mueven los archivos de ESTA emisión (payload.files). Lo demás que haya en pendiente/
+  // pertenece a otras emisiones de la misma cédula/RIF (empresa con varios empleados) y se queda ahí.
   const pendienteDir = expedienteDir(payload.empresaNombre, cedula, 'pendiente');
-  if (fs.existsSync(pendienteDir)) {
-    const leftovers = await fsp.readdir(pendienteDir);
-    for (const name of leftovers) {
-      const src = path.join(pendienteDir, name);
-      const st = await fsp.stat(src).catch(() => null);
-      if (!st || !st.isFile()) continue;
-      const dest = path.join(destDir, name);
-      if (fs.existsSync(dest)) continue;
-      await fsp.rename(src, dest).catch(async () => {
-        await fsp.copyFile(src, dest);
-        await fsp.unlink(src).catch(() => {});
-      });
-      if (!saved.includes(name)) saved.push(name);
-    }
-    await fsp.rmdir(pendienteDir).catch(() => {});
-  }
+  await fsp.rmdir(pendienteDir).catch(() => {}); // solo si quedó vacía
 
   return { destDir, saved, skipped };
 }
