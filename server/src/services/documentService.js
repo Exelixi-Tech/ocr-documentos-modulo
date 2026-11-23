@@ -45,6 +45,16 @@ function docTypeMatchesSlot(expected, detected, fields, aceptaRif = false) {
     return num.length >= 5;
   }
 
+  // Certificado de Origen del INTT (vehículo nuevo, aún sin certificado de circulación) u otro
+  // documento vehicular que Gemini no clasificó: vale si trae la identidad del vehículo (placa o
+  // serial de carrocería) y su marca o modelo; luego se compara igual que el certificado.
+  if (expected === 'certificado') {
+    const placa = String(fields.placa ?? '').replace(/[^0-9A-Za-z]/g, '');
+    const serial = String(fields.serial ?? fields.serialCarroceria ?? '').replace(/[^0-9A-Za-z]/g, '');
+    const hasVehiculo = Boolean(fields.marca || fields.modelo);
+    return (placa.length >= 5 || serial.length >= 10) && hasVehiculo;
+  }
+
   return false;
 }
 
