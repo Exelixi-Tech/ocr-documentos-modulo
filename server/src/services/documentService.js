@@ -9,6 +9,7 @@
  * no romper el flujo del usuario, pero el error queda registrado.
  */
 
+const { priorizarPersonaNatural } = require('../lib/documentosAdicionales');
 const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif', 'pasaporte', 'factura'];
 
 const DOC_TYPE_LABELS = {
@@ -170,6 +171,10 @@ async function runOcr(file, docType, tarjetaHints, opts = {}) {
         `[OCR] gemini OK (${result.meta.elapsedMs} ms) docType=${docType} ` +
         `model=${result.meta.model}${chainSummary ? ` chain=[${chainSummary}]` : ''}`
       );
+
+      // Archivo con varios documentos (RIF de empresa + cédula): en un espacio de persona natural
+      // manda la persona; el RIF jurídico queda en documentosAdicionales (no se rechaza el archivo).
+      if (rifSoloNatural && result.fields) priorizarPersonaNatural(result.fields);
 
       // Validacion: el header del documento debe coincidir con el slot solicitado.
       const detected = result.fields && result.fields.documentoTipo;
