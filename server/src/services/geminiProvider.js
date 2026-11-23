@@ -32,6 +32,7 @@ const { GoogleGenAI, Type } = require('@google/genai');
 const { aplicarGuardRif } = require('./rifNormalizer');
 const { aplicarPasaporte } = require('./mrzParser');
 const { stripSerialTokens } = require('./ownerNameTokens');
+const { limpiarDocumentosAdicionales } = require('../lib/documentosAdicionales');
 
 const DEFAULT_PRIMARY_MODEL = 'gemini-3.6-flash';
 const DEFAULT_FALLBACK_CHAIN = [
@@ -255,8 +256,20 @@ function isColombianIdentityDoc(fields) {
   return hint.includes('COLOMB') || hint.includes('CIUDADANÍA') || hint.includes('CIUDADANIA');
 }
 
+/**
+ * Cédula o RIF: normaliza los campos principales y, si el archivo traía varios documentos
+ * (`documentosAdicionales`, solo esquema cedula_rif), los limpia sin tocar los principales.
+ */
 function normalizeCedulaFields(fields) {
   if (!fields || typeof fields !== 'object') return fields;
+  const adicionales = fields.documentosAdicionales;
+  delete fields.documentosAdicionales;
+  normalizeCedulaPrincipal(fields);
+  if (Array.isArray(adicionales) && adicionales.length) fields.documentosAdicionales = adicionales;
+  return limpiarDocumentosAdicionales(fields);
+}
+
+function normalizeCedulaPrincipal(fields) {
 
   for (const key of ['nombre', 'apellido', 'razonSocial', 'rif', 'identificacion', 'fechaNacimiento', 'sexo', 'estadoCivil']) {
     if (key in fields) {
@@ -798,6 +811,23 @@ const SCHEMAS = {
         enum: ['VE', 'CO'],
         description: 'VE=Venezuela, CO=Colombia (Cedula de Ciudadania)',
       },
+      documentosAdicionales: {
+        type: Type.ARRAY,
+        description:
+          'Solo si el archivo trae VARIOS documentos de identidad (varias paginas o imagenes): cada documento ' +
+          'distinto del de los campos principales. Si hay un solo documento, arreglo vacio.',
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            tipoDoc: { type: Type.STRING, enum: ['V', 'E', 'J', 'G', 'C', 'P'] },
+            identificacion: { type: Type.STRING, description: 'Solo digitos (pasaporte: tal cual).' },
+            rif: { type: Type.STRING, description: 'RIF con letra y guiones si es RIF; si no, null.' },
+            nombre: { type: Type.STRING },
+            apellido: { type: Type.STRING },
+            razonSocial: { type: Type.STRING },
+          },
+        },
+      },
       fechaNacimiento: {
         type: Type.STRING,
         description:
@@ -1109,7 +1139,11 @@ const PROMPTS = {
     'direccionFiscal = texto tras "DOMICILIO FISCAL" sin el estado ni la zona postal; estadoFiscal = estado de Venezuela al final del domicilio; ' +
     'zonaPostal = 4 digitos tras "ZONA POSTAL". fechaInscripcion y fechaVencimiento en YYYY-MM-DD (impreso DD/MM/YYYY). ' +
     'Si es RIF de persona natural (V o E): apellido = APELLIDOS y nombre = NOMBRES del contribuyente (el SENIAT imprime APELLIDOS NOMBRES), razonSocial = null; ' +
-    'direccionFiscal igual que en empresa; fechaNacimiento solo si aparece impresa (si no, null). NUNCA inventes datos.',
+    'direccionFiscal igual que en empresa; fechaNacimiento solo si aparece impresa (si no, null). NUNCA inventes datos. ' +
+    '=== Si el archivo trae VARIOS documentos (varias paginas o imagenes, p. ej. el RIF de una empresa y la cedula de una persona) === ' +
+    'en los campos principales devuelve el RIF JURIDICO (J, G o C) si existe; y cada otro documento de identidad en documentosAdicionales ' +
+    '(tipoDoc, identificacion, rif, nombre, apellido, razonSocial). Si no hay RIF juridico, los campos principales son los del primer documento. ' +
+    'Si solo hay un documento, documentosAdicionales = [] y todo igual que siempre.',
   licencia:
     VALIDATION_PREAMBLE +
     'Tipo solicitado: LICENCIA DE CONDUCIR (Venezuela INTT o Colombia — flujo RCV extranjero). ' +

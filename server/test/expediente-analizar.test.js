@@ -217,3 +217,25 @@ test('archivo vacío: sin lectura (ilegible), sin llamar al OCR', async (t) => {
   assert.ok(r.body.ocr.motivo);
   assert.equal(ocr.mock.callCount(), 0);
 });
+
+test('archivo con varios documentos (RIF + cédula): documentosAdicionales llega tal cual a Nexus', async (t) => {
+  process.env.EXPEDIENTE_INTERNAL_KEY = KEY;
+  const multi = {
+    provider: 'gemini',
+    fields: {
+      tipoDoc: 'J',
+      rif: 'J-50058503-9',
+      identificacion: '500585039',
+      razonSocial: 'SUPERMERCADO RIO VIDA C.A',
+      nombre: 'SUPERMERCADO RIO VIDA C.A',
+      documentosAdicionales: [
+        { tipoDoc: 'V', identificacion: '17671805', nombre: 'JHON', apellido: 'PEREZ GARCIA' },
+      ],
+    },
+    meta: { chainAttempts: [{ model: 'm', criticalOk: true }] },
+  };
+  t.mock.method(documentService, 'runOcr', async () => structuredClone(multi));
+  const r = await post({ ref: REL, tipo: 'cedula', aceptaRif: true });
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.ocr.extraido, multi.fields);
+});
