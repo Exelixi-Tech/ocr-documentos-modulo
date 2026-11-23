@@ -613,7 +613,7 @@ function validateCriticalFields(docType, fields) {
  * Headers oficiales que la IA debe reconocer:
  *   - cedula:      "REPUBLICA BOLIVARIANA DE VENEZUELA" + "CEDULA DE IDENTIDAD"
  *   - licencia:    "Licencia para Conducir" + INTT
- *   - certificado: INTT VE ("CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD")
+ *   - certificado: INTT VE ("CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" / "CERTIFICADO DE ORIGEN")
  *                  O Colombia ("LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE…")
  *   - rif:         "REGISTRO UNICO DE INFORMACION FISCAL" + SENIAT
  */
@@ -627,7 +627,8 @@ const DOC_TYPE_PROP = {
     'Devuelve "licencia" si es licencia de conducir: ' +
     '"Licencia para Conducir" (INTT Venezuela) O "Licencia de Conduccion" (Colombia / Ministerio de Transporte). ' +
     'Devuelve "certificado" si es documento vehicular: ' +
-    '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
+    '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" / "CERTIFICADO DE ORIGEN" ' +
+    '(INTT Venezuela; el de origen es del vehiculo nuevo, aun sin certificado de circulacion) ' +
     'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
     '(Republica de Colombia / Ministerio de Transporte). ' +
     'Devuelve "rif" si dice "REGISTRO UNICO DE INFORMACION FISCAL" (SENIAT). ' +
@@ -1034,7 +1035,8 @@ const VALIDATION_PREAMBLE =
   '"licencia" si ves licencia de conducir: ' +
   '"Licencia para Conducir" (INTT Venezuela) O "Licencia de Conduccion" (Colombia); ' +
   '"certificado" si ves documento de vehiculo: ' +
-  '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" (INTT Venezuela) ' +
+  '"CERTIFICADO DE CIRCULACION" / "TITULO DE PROPIEDAD" / "CERTIFICADO DE ORIGEN" ' +
+  '(INTT Venezuela; el de origen es del vehiculo nuevo, aun sin certificado de circulacion) ' +
   'O "LICENCIA DE TRANSITO" / "TARJETA DE REGISTRO DE REMOLQUE O SEMIRREMOLQUE" ' +
   '(Republica de Colombia / Ministerio de Transporte); ' +
   '"rif" si ves "REGISTRO UNICO DE INFORMACION FISCAL" del SENIAT; ' +
@@ -1109,7 +1111,8 @@ const PROMPTS = {
     VALIDATION_PREAMBLE +
     'Tipo solicitado: DOCUMENTO VEHICULAR (carnet de circulacion). ' +
     'Detecta la variante en tipoCarnet: ' +
-    '"nacional" si es Venezuela INTT (CERTIFICADO DE CIRCULACION / TITULO DE PROPIEDAD); ' +
+    '"nacional" si es Venezuela INTT (CERTIFICADO DE CIRCULACION / TITULO DE PROPIEDAD / ' +
+    'CERTIFICADO DE ORIGEN de vehiculo nuevo); ' +
     '"extranjero" si es Colombia (LICENCIA DE TRANSITO o TARJETA DE REGISTRO DE REMOLQUE/SEMIRREMOLQUE ' +
     'del Ministerio de Transporte / Republica de Colombia — placa extranjera). ' +
     '"binacional" SOLO si es carnet venezolano INTT con indicacion explicita de permiso binacional ' +
