@@ -20,6 +20,11 @@
  *     (número exacto; luego últimos 8 dígitos si es única) o {cédula}/pendiente y responde
  *     { ok, ubicacion: poliza|pendiente|null, carpeta, documentos: { [clave]: ref } }. Solo lectura.
  *
+ * POST /api/internal/expedientes/huellas  (JSON: { refs: string[] }, hasta 100)
+ *   - Solo lectura, SIN IA: por cada ref devuelve el sha256 del archivo guardado o { existe: false }.
+ *     Misma protección de rutas que /analizar (dentro de EXPEDIENTES_ROOT, sin enlaces simbólicos).
+ *     Lo usa Nexus para avisar cuando el archivo guardado hoy ya no es el que se analizó.
+ *
  * ocr.falla (opcional): 'tecnica' = no hubo lectura real (Gemini caído, OCR simulado, formato no
  * soportado por el proveedor); 'tipo_documento' = el documento no es del tipo pedido.
  *
@@ -433,6 +438,71 @@ router.post('/localizar', requireInternalKey, express.json({ limit: '16kb' }), (
       code: 'EXPEDIENTE_LOCALIZAR_ERROR',
       message: 'No se pudo localizar el expediente.',
     });
+  }
+});
+
+/**
+ * @openapi
+ * /api/internal/expedientes/huellas:
+ *   post:
+ *     tags: [Documentos]
+ *     summary: (Interno) Huella sha256 de documentos ya guardados (solo lectura, sin IA)
+ *     description: |
+ *       Servidor a servidor (Nexus → OCR). Requiere `x-expediente-key`. Recibe hasta 100 `refs` y
+ *       devuelve por cada una `{ ref, existe, hash }`. No lee con IA, no copia, no mueve ni borra.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [refs]
+ *             properties:
+ *               refs: { type: array, maxItems: 100, items: { type: string } }
+ *     responses:
+ *       200: { description: '{ ok, resultados: [{ ref, existe, hash }] }' }
+ *       400: { description: refs ausente, no es lista o pasa de 100 }
+ *       401: { description: Clave interna inválida }
+ *       503: { description: EXPEDIENTE_INTERNAL_KEY no configurada }
+ */
+const MAX_HUELLAS = 100;
+router.post('/huellas', requireInternalKey, express.json({ limit: '64kb' }), async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const refs = body.refs;
+    if (!Array.isArray(refs) || !refs.length || refs.length > MAX_HUELLAS || refs.some((r) => typeof r !== 'string')) {
+      return res.status(400).json({
+        ok: false,
+        code: 'REFS_INVALIDAS',
+        message: `Indique refs: una lista de 1 a ${MAX_HUELLAS} rutas de texto.`,
+      });
+    }
+    const resultados = [];
+    for (const ref of refs) {
+      const abs = expedienteFs.resolveExpedienteRef(ref);
+      if (!abs) {
+        resultados.push({ ref, existe: false, hash: null });
+        continue;
+      }
+      try {
+        const lst = await fs.promises.lstat(abs);
+        if (!lst.isFile() || lst.isSymbolicLink()) {
+          resultados.push({ ref, existe: false, hash: null });
+          continue;
+        }
+        resultados.push({ ref, existe: true, hash: await hashArchivo(abs) });
+      } catch {
+        resultados.push({ ref, existe: false, hash: null });
+      }
+    }
+    // Sin rutas ni cédulas en el log.
+    console.log(
+      `[modulo-ocr/expediente-huellas] refs=${refs.length} existen=${resultados.filter((r) => r.existe).length}`,
+    );
+    return res.status(200).json({ ok: true, resultados });
+  } catch (err) {
+    console.error('[modulo-ocr/expediente-huellas] error:', err?.code || err?.name || 'Error');
+    return res.status(500).json({ ok: false, code: 'EXPEDIENTE_HUELLAS_ERROR', message: 'No se pudieron calcular las huellas.' });
   }
 });
 
