@@ -160,7 +160,26 @@ async function placePending(srcPath, opts) {
 }
 
 /**
- * Copia/mueve documentos a empresa/cedula/nomenclatura.
+ * ¿Los dos archivos tienen el mismo contenido? (para no duplicar si el archivo ya se archivó).
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function mismoContenido(a, b) {
+  try {
+    if (fs.statSync(a).size !== fs.statSync(b).size) return false;
+    return fs.readFileSync(a).equals(fs.readFileSync(b));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * COPIA los documentos de la emisión a empresa/cedula/nomenclatura.
+ * Nunca mueve ni borra el origen: el mismo archivo de pendiente/ puede estar enlazado desde otros
+ * expedientes de Nexus (las pólizas 7-7 y 9-7 del mismo asegurado, o archivos con nombre fijo de
+ * antes del 23-nov) y moverlo dejaba esos enlaces rotos. Nunca sobrescribe en el destino
+ * (placeNoOverwrite); si el destino ya tiene ese mismo archivo (reintento), no lo duplica.
  * @param {{
  *   empresaNombre: string,
  *   cedula: string,
@@ -193,24 +212,18 @@ async function commitExpediente(payload) {
     const ext = path.extname(src) || path.extname(file.name || '') || '.webp';
     const key = String(file.docType || '').replace(/[^\w-]/g, '');
     const base = DOC_FILE_NAMES[key] || key || path.basename(src, ext);
-    let dest = path.join(destDir, `${base}${ext}`);
-    if (fs.existsSync(dest) && path.resolve(src) !== path.resolve(dest)) {
-      dest = path.join(destDir, `${base}-${Date.now()}${ext}`);
+    const natural = path.join(destDir, `${base}${ext}`);
+    // Ya está en la carpeta de la póliza (mismo archivo o reintento del archivado): no se copia otra vez.
+    if (path.resolve(src) === path.resolve(natural) || mismoContenido(src, natural)) {
+      saved.push(path.basename(natural));
+      continue;
     }
-    if (path.resolve(src) !== path.resolve(dest)) {
-      await fsp.rename(src, dest).catch(async () => {
-        await fsp.copyFile(src, dest);
-        await fsp.unlink(src).catch(() => {});
-      });
-    }
-    saved.push(path.basename(dest));
+    const placed = await placeNoOverwrite(src, destDir, base, { conservarOrigen: true });
+    saved.push(path.basename(placed.absPath));
   }
 
-  // Solo se mueven los archivos de ESTA emisión (payload.files). Lo demás que haya en pendiente/
-  // pertenece a otras emisiones de la misma cédula/RIF (empresa con varios empleados) y se queda ahí.
-  const pendienteDir = expedienteDir(payload.empresaNombre, cedula, 'pendiente');
-  await fsp.rmdir(pendienteDir).catch(() => {}); // solo si quedó vacía
-
+  // pendiente/ no se toca: sus archivos pueden estar enlazados desde otros expedientes (misma
+  // cédula/RIF: empresa con varios empleados o el mismo asegurado con varias pólizas).
   return { destDir, saved, skipped };
 }
 
@@ -257,13 +270,15 @@ function findPolicyDir(empresas, cedula, cnpoliza, cnrecibo) {
 
 /**
  * Guarda srcPath en destDir como {base}{ext} sin pisar ni borrar nada del expediente:
- * si el nombre existe usa {base}-{timestamp}{ext}. Solo elimina el temporal de origen.
+ * si el nombre existe usa {base}-{timestamp}{ext}. Elimina el temporal de origen, salvo con
+ * `conservarOrigen` (archivar una póliza: el origen de pendiente/ puede estar enlazado desde Nexus).
  * @param {string} srcPath
  * @param {string} destDir
  * @param {string} baseName  tipo de documento (cedula, licencia…)
+ * @param {{ conservarOrigen?: boolean }} [opts]
  * @returns {Promise<{ absPath: string, url: string }>}
  */
-async function placeNoOverwrite(srcPath, destDir, baseName) {
+async function placeNoOverwrite(srcPath, destDir, baseName, opts = {}) {
   ensureDirSync(destDir);
   const ext = path.extname(srcPath) || '.webp';
   const key = String(baseName || '').replace(/[^\w-]/g, '');
@@ -278,7 +293,7 @@ async function placeNoOverwrite(srcPath, destDir, baseName) {
       if (err && err.code === 'EEXIST') continue;
       throw err;
     }
-    await fsp.unlink(srcPath).catch(() => {});
+    if (!opts.conservarOrigen) await fsp.unlink(srcPath).catch(() => {});
     return { absPath: dest, url: publicFileUrl(dest) };
   }
   const err = new Error('No se encontró un nombre libre para el documento.');
