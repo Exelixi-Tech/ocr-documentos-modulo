@@ -31,6 +31,7 @@ const fs = require('fs/promises');
 const { GoogleGenAI, Type } = require('@google/genai');
 const { aplicarGuardRif } = require('./rifNormalizer');
 const { aplicarPasaporte } = require('./mrzParser');
+const { limpiarNombres } = require('./nombreNoEsDato');
 const { stripSerialTokens } = require('./ownerNameTokens');
 const { limpiarDocumentosAdicionales } = require('../lib/documentosAdicionales');
 
@@ -266,7 +267,11 @@ function normalizeCedulaFields(fields) {
   delete fields.documentosAdicionales;
   normalizeCedulaPrincipal(fields);
   if (Array.isArray(adicionales) && adicionales.length) fields.documentosAdicionales = adicionales;
-  return limpiarDocumentosAdicionales(fields);
+  limpiarDocumentosAdicionales(fields);
+  // Sexo, estado civil, nacionalidad o un rótulo como nombre/apellido (foto girada): campo vacío.
+  limpiarNombres(fields);
+  if (Array.isArray(fields.documentosAdicionales)) fields.documentosAdicionales.forEach(limpiarNombres);
+  return fields;
 }
 
 function normalizeCedulaPrincipal(fields) {
@@ -352,6 +357,7 @@ function normalizeLicenciaFields(fields) {
   delete fields.numeroDocumento;
   const fechaNac = normalizeFechaNacimientoOcr(fields.fechaNacimiento);
   fields.fechaNacimiento = fechaNac;
+  limpiarNombres(fields);
   return fields;
 }
 
