@@ -166,6 +166,7 @@ async function runOcr(file, docType, tarjetaHints, opts = {}) {
       const gemini = require('./geminiProvider');
       const result = await gemini.extract(file.path, file.mimetype, docType, {
         aceptaRif,
+        ...(opts.lecturaPath ? { lecturaPath: opts.lecturaPath } : {}),
         // Solo el monitor de expedientes la manda (pro primero); emisión usa la cadena por defecto.
         ...(Array.isArray(opts.modelChain) && opts.modelChain.length ? { modelChain: opts.modelChain } : {}),
       });
