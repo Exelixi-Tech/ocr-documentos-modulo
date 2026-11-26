@@ -12,9 +12,14 @@
  *
  * Variables de entorno:
  *   GEMINI_API_KEY   Requerido.
- *   GEMINI_MODEL     Opcional. Modelo principal. Default: gemini-3.6-flash.
+ *   GEMINI_MODEL     Opcional. Modelo principal. Default: gemini-3.1-pro-preview.
  *   GEMINI_MODELS    Opcional. Cadena CSV de fallback. Default:
- *                    "gemini-3.6-flash,gemini-3.1-pro-preview".
+ *                    "gemini-3.1-pro-preview,gemini-3.6-flash" (pro primero para TODOS
+ *                    los documentos de la emisión, flash de respaldo: desde oct-2026 flash
+ *                    devolvió campos corridos en carnets INTT gastados — nombre del
+ *                    propietario como serial, modelo como placa).
+ *                    OJO: si el .env fija GEMINI_MODEL=gemini-3.6-flash o un GEMINI_MODELS
+ *                    con flash primero, esa variable manda sobre este default.
  *                    (Google retiró gemini-2.5-pro / 2.5-flash el 26-oct-2026: 404.
  *                    gemini-3.8-flash no lee bien el carnet INTT: sin placa o placa/VIN
  *                    inventados, sin modelo ni color — prueba en el 121 el 27-oct.)
@@ -35,10 +40,10 @@ const { limpiarNombres } = require('./nombreNoEsDato');
 const { stripSerialTokens } = require('./ownerNameTokens');
 const { limpiarDocumentosAdicionales } = require('../lib/documentosAdicionales');
 
-const DEFAULT_PRIMARY_MODEL = 'gemini-3.6-flash';
+const DEFAULT_PRIMARY_MODEL = 'gemini-3.1-pro-preview';
 const DEFAULT_FALLBACK_CHAIN = [
-  'gemini-3.6-flash',
   'gemini-3.1-pro-preview',
+  'gemini-3.6-flash',
 ];
 
 const SUPPORTED_MIME = new Set([
@@ -149,6 +154,80 @@ function sanitizeVinOrMotor(value) {
   if (!s) return null;
   const u = s.toUpperCase();
   return u.includes('*') ? null : u;
+}
+
+/** Solo letras y dígitos, en mayúsculas (para comparar campos corridos del carnet). */
+function soloAlfanumerico(value) {
+  return String(value == null ? '' : value)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+/** Formas del nombre del propietario leído en el carnet (completo y nombre/apellido en ambos órdenes). */
+function variantesPropietario(fields) {
+  const out = new Set();
+  const add = v => {
+    const n = soloAlfanumerico(v);
+    if (n.length >= 4) out.add(n);
+  };
+  add(fields.propietario);
+  add(fields.propietarioCompleto);
+  for (const [a, b] of [['propietarioNombre', 'propietarioApellido'], ['nombre', 'apellido']]) {
+    const x = isNullishOcrValue(fields[a]) ? '' : String(fields[a]);
+    const y = isNullishOcrValue(fields[b]) ? '' : String(fields[b]);
+    add(x);
+    add(y);
+    add(x + y);
+    add(y + x);
+  }
+  return [...out];
+}
+
+/**
+ * Carnet INTT gastado: el OCR a veces corre los campos (nombre del propietario en el serial,
+ * modelo en la placa). Devuelve el motivo por el que un serial/placa leído NO es creíble, o null.
+ * - sin ningún dígito (un VIN, serial de motor o placa siempre lleva alguno);
+ * - igual al propietario o a un prefijo de él (texto cortado por el ancho del campo);
+ * - igual a la marca, al modelo o a marca+modelo (o a un prefijo de ellos).
+ */
+function motivoCampoCorrido(value, { propietarios = [], marca, modelo } = {}) {
+  const v = soloAlfanumerico(value);
+  if (!v) return null;
+  if (!/\d/.test(v)) return 'sin_digitos';
+  const esPrefijo = largo => v.length >= 4 && largo.length > v.length && largo.startsWith(v);
+  for (const p of propietarios) {
+    if (v === p || esPrefijo(p)) return 'es_propietario';
+  }
+  const ma = soloAlfanumerico(marca);
+  const mo = soloAlfanumerico(modelo);
+  for (const m of [ma, mo, ma && mo ? ma + mo : '']) {
+    if (m && (v === m || esPrefijo(m))) return 'es_marca_modelo';
+  }
+  return null;
+}
+
+/**
+ * Aplica motivoCampoCorrido a placa, serial y serialMotor del carnet nacional: lo no creíble
+ * queda en null (el usuario lo escribe). Deja la lista en `_camposDescartados` (no enumerable:
+ * no viaja en el JSON de respuesta) para que extract() pruebe con el siguiente modelo.
+ */
+function descartarCamposCorridos(fields, propietarios) {
+  const ctx = { propietarios, marca: fields.marca, modelo: fields.modelo };
+  const descartados = [];
+  for (const key of ['placa', 'serial', 'serialMotor']) {
+    if (isNullishOcrValue(fields[key])) continue;
+    const motivo = motivoCampoCorrido(fields[key], ctx);
+    if (!motivo) continue;
+    console.warn(`[OCR] carnet: ${key} descartado (${motivo}); lectura con campos corridos`);
+    fields[key] = null;
+    descartados.push(key);
+  }
+  Object.defineProperty(fields, '_camposDescartados', {
+    value: descartados, enumerable: false, configurable: true, writable: true,
+  });
+  return descartados;
 }
 
 /** Placa INTT Venezuela (ej. AC124KB) — no confundir con Colombia (SWK284). */
@@ -524,11 +603,15 @@ function normalizeCertificadoFields(fields) {
 
   const isExtranjero = isExtranjeroCarnetColombia(fields, tipoRaw, placaNorm, hasLinea);
   const isBinacional = !isExtranjero && tipoRaw === 'binacional';
+  // Campos corridos en TODAS las variantes: una placa VE vieja (GCP64G) puede caer como
+  // extranjero si Gemini no devuelve tipoCarnet.
+  const propietariosLeidos = variantesPropietario(fields);
 
   if (isExtranjero) {
     fields.tipoCarnet = 'extranjero';
     fields.tipoPlaca = 'extranjera';
     applyColombiaTransitDocMapping(fields);
+    descartarCamposCorridos(fields, [...new Set([...propietariosLeidos, ...variantesPropietario(fields)])]);
     return fields;
   }
 
@@ -536,6 +619,7 @@ function normalizeCertificadoFields(fields) {
     fields.tipoCarnet = 'binacional';
     fields.tipoPlaca = 'binacional';
     applyColombiaTransitDocMapping(fields);
+    descartarCamposCorridos(fields, [...new Set([...propietariosLeidos, ...variantesPropietario(fields)])]);
     return fields;
   }
 
@@ -607,7 +691,10 @@ function normalizeCertificadoFields(fields) {
     fields.color = c ? c.charAt(0).toUpperCase() + c.slice(1).toLowerCase() : null;
   }
 
+  // Antes de mapear el propietario (que limpia y reparte el nombre): se compara con lo leído tal cual.
+  const propietarios = variantesPropietario(fields);
   mapPropietarioFromNacionalCarnet(fields);
+  descartarCamposCorridos(fields, [...new Set([...propietarios, ...variantesPropietario(fields)])]);
 
   delete fields.anio;
   delete fields.vin;
@@ -1338,6 +1425,13 @@ async function extract(filePath, mimetype, docType, opts = {}) {
     try {
       const r = await callGeminiWithRetry(model, docType, base64, mimetype, schemaKey);
       const validation = validateCriticalFields(schemaKey, r.fields);
+      // Carnet con campos corridos (serial = propietario, placa = modelo…): lo descartado cuenta
+      // como faltante para que lo intente el siguiente modelo de la cadena.
+      const descartados = (docType === 'certificado' && r.fields && r.fields._camposDescartados) || [];
+      for (const campo of descartados) {
+        if (!validation.missing.includes(campo)) validation.missing.push(campo);
+      }
+      if (descartados.length) validation.ok = false;
 
       attemptsLog.push({
         model,
@@ -1345,6 +1439,7 @@ async function extract(filePath, mimetype, docType, opts = {}) {
         elapsedMs: r.elapsedMs,
         criticalOk: validation.ok,
         missing: validation.missing,
+        ...(descartados.length ? { descartados } : {}),
       });
 
       // Si el documento no coincide con el slot, devolvemos inmediatamente:
@@ -1381,7 +1476,8 @@ async function extract(filePath, mimetype, docType, opts = {}) {
         `intentando siguiente modelo si hay`
       );
       lastErr = new Error(`Campos críticos vacíos: ${validation.missing.join(', ')}`);
-      if (docType === 'certificado' && !validation.missing.includes('placa')
+      // También sin placa si fue descartada por corrida: se devuelve en null para escribirla a mano.
+      if (docType === 'certificado' && (!validation.missing.includes('placa') || descartados.includes('placa'))
         && (!bestPartial || validation.missing.length < bestPartial.missing)) {
         bestPartial = { fields: r.fields, model, singleCallMs: r.elapsedMs, missing: validation.missing.length };
       }
@@ -1432,5 +1528,5 @@ module.exports = {
   getExpedientesModelChain,
   DEFAULT_EXPEDIENTES_CHAIN,
   /** Solo para tests. */
-  _internal: { normalizeCedulaFields, validateCriticalFields },
+  _internal: { normalizeCedulaFields, validateCriticalFields, normalizeCertificadoFields, motivoCampoCorrido },
 };

@@ -38,9 +38,9 @@ test('expedientes: se descartan los 2.5 retirados y gemini-3.8-flash; si no qued
   assert.deepEqual(gemini.getExpedientesModelChain(), ['gemini-3.1-pro-preview', 'gemini-3.6-flash']);
 });
 
-test('emisión no cambia: la cadena por defecto sigue siendo flash → pro', () => {
+test('emisión: la cadena por defecto es pro → flash y no depende de la de expedientes', () => {
   process.env.GEMINI_MODELS_EXPEDIENTES = 'gemini-3.1-pro-preview';
-  assert.deepEqual(gemini.getModelChain(), ['gemini-3.6-flash', 'gemini-3.1-pro-preview']);
+  assert.deepEqual(gemini.getModelChain(), ['gemini-3.1-pro-preview', 'gemini-3.6-flash']);
 });
 
 test('extraer (expedientes) pide a runOcr la cadena de expedientes', async (t) => {
