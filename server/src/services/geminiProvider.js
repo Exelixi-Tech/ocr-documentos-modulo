@@ -775,8 +775,8 @@ const SCHEMAS = {
     type: Type.OBJECT,
     properties: {
       documentoTipo: DOC_TYPE_PROP,
-      nombre: { type: Type.STRING, description: 'Primer nombre del titular' },
-      apellido: { type: Type.STRING, description: 'Primer apellido del titular' },
+      nombre: { type: Type.STRING, description: 'Nombres del titular, todos y tal como aparecen' },
+      apellido: { type: Type.STRING, description: 'Apellidos del titular, todos y tal como aparecen' },
       identificacion: {
         type: Type.STRING,
         description:
@@ -835,11 +835,11 @@ const SCHEMAS = {
       documentoTipo: DOC_TYPE_PROP,
       nombre: {
         type: Type.STRING,
-        description: 'Primer nombre del titular si es persona natural, o razón social si es empresa / RIF jurídico',
+        description: 'Nombres del titular (todos, tal como aparecen) si es persona natural, o razón social si es empresa / RIF jurídico',
       },
       apellido: {
         type: Type.STRING,
-        description: 'Primer apellido del titular si es persona natural. Para empresas o RIF jurídico dejar null',
+        description: 'Apellidos del titular (todos, tal como aparecen) si es persona natural. Para empresas o RIF jurídico dejar null',
       },
       razonSocial: {
         type: Type.STRING,
@@ -936,8 +936,8 @@ const SCHEMAS = {
     type: Type.OBJECT,
     properties: {
       documentoTipo: DOC_TYPE_PROP,
-      nombre: { type: Type.STRING, description: 'Primer nombre del titular de la licencia' },
-      apellido: { type: Type.STRING, description: 'Primer apellido del titular de la licencia' },
+      nombre: { type: Type.STRING, description: 'Nombres del titular de la licencia, todos y tal como aparecen' },
+      apellido: { type: Type.STRING, description: 'Apellidos del titular de la licencia, todos y tal como aparecen' },
       identificacion: {
         type: Type.STRING,
         description:
@@ -1403,6 +1403,11 @@ async function extract(filePath, mimetype, docType, opts = {}) {
 
   const buffer = await fs.readFile(filePath);
   const base64 = buffer.toString('base64');
+  // Copia recortada (documentCrop): solo para el primer modelo. Si no basta, los siguientes
+  // leen la foto completa, por si el recorte dejó fuera un dato.
+  const recorte = opts.lecturaPath
+    ? { base64: (await fs.readFile(opts.lecturaPath)).toString('base64'), mimetype: 'image/webp' }
+    : null;
 
   // opts.modelChain: cadena propia del llamador (monitor de expedientes); si no, la de emisión.
   const chain = Array.isArray(opts.modelChain) && opts.modelChain.length
@@ -1417,9 +1422,10 @@ async function extract(filePath, mimetype, docType, opts = {}) {
   /** RIF leído completo salvo la dirección: se devuelve si ningún modelo la trae. */
   let sinDireccion = null;
 
-  for (const model of chain) {
+  for (const [indice, model] of chain.entries()) {
+    const imagen = indice === 0 && recorte ? recorte : { base64, mimetype };
     try {
-      const r = await callGeminiWithRetry(model, docType, base64, mimetype, schemaKey);
+      const r = await callGeminiWithRetry(model, docType, imagen.base64, imagen.mimetype, schemaKey);
       const validation = validateCriticalFields(schemaKey, r.fields);
       // Carnet con campos corridos (serial = propietario, placa = modelo…): lo descartado cuenta
       // como faltante para que lo intente el siguiente modelo de la cadena.
