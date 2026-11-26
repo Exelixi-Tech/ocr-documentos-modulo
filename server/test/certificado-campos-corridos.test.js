@@ -121,12 +121,13 @@ test('serial de motor sin dígitos o igual al propietario → null', () => {
   assert.deepEqual(f._camposDescartados, ['serialMotor']);
 });
 
-test('carnet extranjero (Colombia) no pasa por estos controles', () => {
+test('carnet extranjero (Colombia): un VIN sin dígitos también se descarta; lo válido se conserva', () => {
   const f = normalizeCertificadoFields({
     documentoTipo: 'certificado', tipoCarnet: 'extranjero', placa: 'SWK284', marca: 'RENAULT',
     linea: 'LOGAN', modelo: '2023', vin: 'SINDIGITOS', propietario: 'PEREZ JUAN',
   });
-  assert.equal(f._camposDescartados, undefined);
+  assert.deepEqual(f._camposDescartados, ['serial']);
+  assert.equal(f.placa, 'SWK284');
 });
 
 async function extraer() {
@@ -168,4 +169,10 @@ test('extract: lectura buena al primer intento no llama al segundo modelo', asyn
   assert.deepEqual(llamadas, ['gemini-3.1-pro-preview']);
   assert.equal(r.meta.partial, undefined);
   assert.equal(r.fields.placa, 'GCP64G');
+});
+
+test('extranjero/binacional: también descarta serial = propietario (placa VE vieja tipo GCP64G sin tipoCarnet)', () => {
+  const f = normalizeCertificadoFields({ placa: 'GCP64G', marca: 'TOYOTA', modelo: 'LAND CRUISER', propietario: 'EDUARDO JOSE QUINTERO VELUTINI', serial: 'EDUARDOJOSEQUINTEROVELUTINI', serialMotor: '8XA11UJ8069022650' });
+  assert.equal(f.serial, null);
+  assert.equal(f.serialMotor, '8XA11UJ8069022650');
 });
