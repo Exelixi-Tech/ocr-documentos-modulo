@@ -14,6 +14,7 @@ const sharp   = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 const { validateDocument, runOcr, VALID_DOC_TYPES } = require('../services/documentService');
 const expedienteFs = require('../lib/expedienteFs');
+const { recortarDocumento } = require('../services/documentCrop');
 
 const router = express.Router();
 
@@ -174,6 +175,7 @@ async function discardUpload(...paths) {
  *         description: Error interno del servidor
  */
 router.post('/documents/upload', upload.single('file'), async (req, res) => {
+  let lecturaPath = null;
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No se recibio ningun archivo.' });
 
@@ -182,6 +184,9 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
     if (!VALID_DOC_TYPES.includes(docType)) {
       return res.status(400).json({ success: false, message: `Tipo invalido: ${docType}` });
     }
+
+    // Antes de normalizeImage, que reduce la foto y borra el original.
+    lecturaPath = await recortarDocumento(req.file.path, req.file.mimetype, docType);
 
     const normalized = await normalizeImage(req.file.path, req.file.mimetype);
     const file = { ...req.file, path: normalized.filePath, mimetype: normalized.mimetype };
@@ -199,7 +204,7 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
     const aceptaRif = String(req.body?.aceptaRif ?? '') === '1';
     // rifSoloNatural=1: slot de persona natural (titular/beneficiario de personas): rechaza RIF J/G/C.
     const rifSoloNatural = String(req.body?.rifSoloNatural ?? '') === '1';
-    const ocrResult = await runOcr(file, docType, tarjetaHints, { aceptaRif, rifSoloNatural });
+    const ocrResult = await runOcr(file, docType, tarjetaHints, { aceptaRif, rifSoloNatural, lecturaPath });
 
     let fileHash = null;
     try {
@@ -281,6 +286,8 @@ router.post('/documents/upload', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error('[modulo-ocr/upload] error:', err);
     return res.status(500).json({ success: false, message: err.message || 'Error interno.' });
+  } finally {
+    if (lecturaPath) await discardUpload(lecturaPath);
   }
 });
 

@@ -319,7 +319,7 @@ function UploadDocCard({
     if (raw.type === 'application/pdf') return raw;
 
     return new Promise((resolve) => {
-      const MAX_PX  = 1600;   // suficiente para leer texto en documentos A4/A5
+      const MAX_PX  = 2560;   // el documento suele ocupar solo parte de la foto: el server lo recorta
       const QUALITY = 0.82;   // 82 % → texto nítido, tamaño mínimo
 
       const url = URL.createObjectURL(raw);
