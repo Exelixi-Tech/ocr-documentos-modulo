@@ -603,11 +603,15 @@ function normalizeCertificadoFields(fields) {
 
   const isExtranjero = isExtranjeroCarnetColombia(fields, tipoRaw, placaNorm, hasLinea);
   const isBinacional = !isExtranjero && tipoRaw === 'binacional';
+  // Campos corridos en TODAS las variantes: una placa VE vieja (GCP64G) puede caer como
+  // extranjero si Gemini no devuelve tipoCarnet.
+  const propietariosLeidos = variantesPropietario(fields);
 
   if (isExtranjero) {
     fields.tipoCarnet = 'extranjero';
     fields.tipoPlaca = 'extranjera';
     applyColombiaTransitDocMapping(fields);
+    descartarCamposCorridos(fields, [...new Set([...propietariosLeidos, ...variantesPropietario(fields)])]);
     return fields;
   }
 
@@ -615,6 +619,7 @@ function normalizeCertificadoFields(fields) {
     fields.tipoCarnet = 'binacional';
     fields.tipoPlaca = 'binacional';
     applyColombiaTransitDocMapping(fields);
+    descartarCamposCorridos(fields, [...new Set([...propietariosLeidos, ...variantesPropietario(fields)])]);
     return fields;
   }
 
